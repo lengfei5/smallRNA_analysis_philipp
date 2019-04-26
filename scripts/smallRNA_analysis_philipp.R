@@ -5,36 +5,6 @@
 ## Author: Jingkui Wang (jingkui.wang@imp.ac.at)
 ## Date of creation: Wed Jan 24 12:50:51 2018
 ##################################################
-#### Functions
-process.countTable = function(all, design, select.counts = "Total.count")
-{
-  index = c()
-  for(n in 1:nrow(design))
-  {
-    #n = 1;
-    if(!is.na(select.counts)){
-      jj = intersect(grep(design$SampleID[n], colnames(all)), grep(select.counts, colnames(all)));
-    }else{
-      jj = grep(design$SampleID[n], colnames(all))
-    }
-    
-    if(length(jj)==1) {
-      index = c(index,jj)
-    }else{
-      print(paste0("ERROR for sample--", design$SampleID[n]))
-    }
-  }
-  
-  newall = data.frame(as.character(all[,1]),  as.matrix(all[, index]), stringsAsFactors = FALSE)
-  colnames(newall)[1] = "gene";
-  ii = which(colnames(design) == "SampleID")
-  kk =  setdiff(c(1:ncol(design)), ii)
-  colnames(newall)[-1] =  apply(design[, c(kk, ii)], 1, function(x) paste0(x, collapse = "_"))
-  #paste0(design[, which(colnames(design) != "SampleID")], design$SampleID, collapse = "_")
-  
-  return(newall)
-}
-
 library("openxlsx")
 require('DESeq2')
 
