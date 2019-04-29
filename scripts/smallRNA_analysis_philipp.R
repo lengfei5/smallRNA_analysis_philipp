@@ -7,41 +7,68 @@
 ##################################################
 library("openxlsx")
 require('DESeq2')
+miRNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/miRNAseq_functions.R"
 
-### data verision and analysis version   
-version.Data = 'miRNAs_R7290_R7366'
-version.analysis = paste0("_", version.Data, "_20190220")
+
+### data verision and analysis version
+version.Data = 'miRNAs_R7708'
+version.analysis = paste0("_", version.Data, "_20190426")
 Save.Tables = TRUE
 
 ### Directories to save results
-#design.file = "../exp_design/R_Philipp_Karina.xlsx"
+design.file = "../exp_design/sampleInfo_R7708.xlsx"
 dataDir = "../data/"
 
-resDir = "../results/R7290_contamination/"
+resDir = "../results/R7708_timeSeries/"
 tabDir =  paste0(resDir, "tables/")
 
 if(!dir.exists(resDir)){dir.create(resDir)}
 if(!dir.exists(tabDir)){dir.create(tabDir)}
 
-#### Import Sample information and table of read counts
-#design = read.xlsx(design.file, sheet = 1, colNames = TRUE)
-design = data.frame(
-  c(seq(81612, 81615), seq(82086, 82088)), 
-  c(rep("cel", 5), "arab", "h2o"),
-  c(rep("2cells", 2), rep("L1", 2), "2cells", "None", "None")
-)
-colnames(design)[c(1:3)] = c("SampleID", "organism", "stage")
-#design$genotype[grep("WT", design$genotype)] = "WT"
-#design$tissue.cell[which(design$genotype=="henn-1_mutant" & design$promoter=="no_promoter")] = "whole_animal_no_promoter"
+##########################################
+# Import Sample information and table of read counts
+# mainly manully 
+##########################################
+if(file.exists(design.file)){
+  design = read.xlsx(design.file, sheet = 1, colNames = TRUE)
+  design = data.frame(design, stringsAsFactors = FALSE)
+  jj = which(colnames(design) == 'Sample.ID')
+  design = design[, c(jj, setdiff(c(1:ncol(design)), jj))]
+  design = design[, c(1:4, 8)]
+  colnames(design) = c('SampleID', 'strain', 'stage', 'treatment', 'adaptor')
+  design$strain[grep('Arab', design$strain)] = "Ath"
+  design$treatment[grep("-", design$treatment)] = 'notreat'
+  design$adaptor[grep('Stand', design$adaptor)] = "standard"
+  
+  #design = design[, -2]
+  
+}else{
+  design = data.frame(
+    c(seq(81612, 81615), seq(82086, 82088)), 
+    c(rep("cel", 5), "arab", "h2o"),
+    c(rep("2cells", 2), rep("L1", 2), "2cells", "None", "None")
+  )
+  
+  colnames(design)[c(1:3)] = c("SampleID", "organism", "stage")
+  #design$genotype[grep("WT", design$genotype)] = "WT"
+  #design$tissue.cell[which(design$genotype=="henn-1_mutant" & design$promoter=="no_promoter")] = "whole_animal_no_promoter"
+}
 
-all = read.delim(paste0(dataDir, "R7290_R7366_countTable.txt"), sep = "\t", header = TRUE)
-# processing count table
+##########################################
+# processing count table, 
+# piRNAs total nb of reads and other stat numbers
+# spike-in 
+##########################################
+aa1 = read.delim(paste0(dataDir, "R7708_result_srbc/countTable.txt"), sep = "\t", header = TRUE)
+aa2 = read.delim(paste0(dataDir, "R7708_result_old/countTable.txt"), sep = "\t", header = TRUE)
+all <- Reduce(function(dtf1, dtf2) merge(dtf1, dtf2, by = "Name", all = TRUE), list(aa1, aa2))
 
 kk = grep("piRNA_", all$Name)
 if(length(kk)>0){
   piRNAs = all[kk, ]
   all = all[-kk,]
 }
+
 all = process.countTable(all=all, design = design, select.counts = "Total.count")
 piRNAs = process.countTable(all= piRNAs, design = design, select.counts = "GM.count")
 piRNAs = as.matrix(piRNAs[, -1])
