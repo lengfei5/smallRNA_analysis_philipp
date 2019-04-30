@@ -72,7 +72,7 @@ spikes1 = read.delim(paste0(dataDir, "R7708_result_srbc/spikeInTable.txt"), sep=
 spikes2 = read.delim(paste0(dataDir, "R7708_result_old/spikeInTable.txt"), sep="\t", header = TRUE, row.names = 1)
 spikes = data.frame(spikes1, spikes2, stringsAsFactors = FALSE)
 
-# stat 
+# stat into the design matrix
 # ignore the stat now, because the nf-pipeline is still yield consistent output
 #stat1 = read.delim(paste0(dataDir, "R7708_result_srbc/countStatTable.txt"), sep="\t", header = TRUE)
 #stat2 = read.delim(paste0(dataDir, "R7708_result_old/countStatTable.txt"), sep="\t", header = TRUE)
@@ -80,6 +80,7 @@ spikes = data.frame(spikes1, spikes2, stringsAsFactors = FALSE)
 #spikes = process.countTable(spikes, design)
 
 source(miRNAfunctions)
+
 pdfname = paste0(resDir, "readCounts_vs_UMI", version.analysis, ".pdf")
 pdf(pdfname, width = 10, height = 6)
 compare.readCounts.umiFr.umiNum(design, aa, spikes)
