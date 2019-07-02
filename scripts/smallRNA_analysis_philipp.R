@@ -13,6 +13,7 @@ miRNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/miRNAseq_fun
 version.Data = 'miRNAs_R7708'
 version.analysis = paste0("_", version.Data, "_20190426")
 
+Counts.to.Use = "UMIfr"
 Save.Tables = TRUE
 check.quality.by.sample.comparisons = FALSE
 
@@ -95,7 +96,6 @@ if(length(kk)>0){
 
 source(miRNAfunctions)
 
-Counts.to.Use = "readCounts"
 
 if(Counts.to.Use == 'readCounts'){
   all = process.countTable(all=aa, design = design, select.counts = "Total.count")
@@ -140,7 +140,8 @@ if(Counts.to.Use == "readCounts"){
 total.spikes = floor(apply(as.matrix(spikes[, -1]), 2, sum))
 
 all = rbind(spikes, all);
-stats = rbind(stat.miRNAs, stat.piRNAs, total.spikes)
+
+design.matrix = data.frame(design, stat.miRNAs, stat.piRNAs, total.spikes)
 
 ######################################
 ######################################
@@ -160,13 +161,13 @@ index.spikeIn = grep("spikeIn", rownames(raw))[c(1:8)]
 
 
 ## calculate scaling factor using spike-ins
-source("miRNAseq_functions.R")
+source(miRNAfunctions)
 
-pdfname = paste0(resDir, "/Spike_in_signals_normalized_DESeq", version.analysis, ".pdf")
+pdfname = paste0(resDir, "/Spike_in_signals_normalized_DESeq_", Counts.to.Use,  version.analysis, ".pdf")
 pdf(pdfname, width = 16, height = 10)
 par(mfrow=c(2,2))
 
-res.spike.in = calculate.scaling.factors.using.spikeIns(raw, concentrations = concentrations, index.spikeIn = index.spikeIn, read.threshold = 5)
+res.spike.in = calculate.scaling.factors.using.spikeIns(raw, concentrations = spike.concentrations, index.spikeIn = index.spikeIn, read.threshold = 5)
 
 dev.off()
 
@@ -175,21 +176,33 @@ res = res.spike.in$normalization.spikeIn
 colnames(cpm) = paste0(colnames(cpm), ".cpm")
 colnames(res) = paste0(colnames(res), ".amol.per.mugRNA.normBySpikeIns")
 
-ss = apply(raw, 2, sum)
-plot(raw[,1]/ss[1]*10^6, cpm[,1], log='xy');abline(0, 1, lwd=2.0, col='red')
-
+#ss = apply(raw, 2, sum)
+#plot(raw[,1]/ss[1]*10^6, cpm[,1], log='xy');abline(0, 1, lwd=2.0, col='red')
 #plot(raw[,1]/ss[1]*10^6/norms[1], res[,1], log='xy');abline(0, 1, lwd=2.0, col='red')
 
 ### normalization counts using piRNA data
 #piRNAs = stat[which(stat$type=="piRNA"), c(-1)]
-piRNAs = stat
+piRNAs = design.matrix$stat.piRNAs
 sizefactors = as.numeric(piRNAs)
 cpm.piRNA = raw
 for(n in 1:ncol(cpm.piRNA))
 {
   cpm.piRNA[,n] = raw[,n]/sizefactors[n]*10^6
 }
+colnames(cpm.piRNA) = paste0(colnames(cpm.piRNA), "normBy.piRNA")
 
+if(Save.Tables){
+  xx = data.frame(raw, res, cpm.piRNA, stringsAsFactors = FALSE)
+  write.csv(xx, file = paste0(tabDir, "Normalized_Table_rawCounts_spikeIn_piRNAs_normalized_for", Counts.to.Use,  version.analysis, ".csv"), 
+            row.names = TRUE)
+}
+
+########################################################
+########################################################
+# Section :  check quality
+#  this is optional part
+########################################################
+########################################################
 if(check.quality.by.sample.comparisons){
   pdfname = paste0(resDir, "/Spike_in_vs_piRNAs", version.analysis, ".pdf")
   pdf(pdfname, width = 10, height = 6)
@@ -237,20 +250,8 @@ if(check.quality.by.sample.comparisons){
   dev.off()
 } 
 
-if(Save.Tables){
-  colnames(cpm.piRNA) = paste0(colnames(cpm.piRNA), "normBy.piRNA")
-  res = data.frame(raw, cpm, res, cpm.piRNA)
-  write.csv(res, file = paste0(tabDir, "table_rawCounts_cpm_spikeIn_piRNAs_normalized", version.analysis, ".csv"), 
-            row.names = TRUE)
-}
 
 
-########################################################
-########################################################
-# Section :  check quality
-#  this is optional part
-########################################################
-########################################################
 read.count = all[, -1];
 
 kk = c(1:nrow(design))
