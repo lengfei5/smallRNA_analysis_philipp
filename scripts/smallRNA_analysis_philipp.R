@@ -9,9 +9,11 @@ library("openxlsx")
 require('DESeq2')
 miRNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/miRNAseq_functions.R"
 
+source(miRNAfunctions)
+
 ### data verision and analysis version
-version.Data = 'miRNAs_R7708'
-version.analysis = paste0("_", version.Data, "_20190426")
+version.Data = 'miRNAs_R8024_R7846_R7708'
+version.analysis = paste0("_", version.Data, "_20190702")
 
 Counts.to.Use = "UMIfr"
 Save.Tables = TRUE
@@ -20,10 +22,10 @@ check.quality.by.sample.comparisons = FALSE
 spike.concentrations = c(0.05, 0.25, 0.5, 1.5, 2.5, 3.5, 5, 25)*100 ## the concentration is amol/mug-of-total-RNA
 
 ### Directories to save results
-design.file = "../exp_design/sampleInfo_R7708.xlsx"
+design.file = "../exp_design/NGS_Samples_Philipp_2019_all.xlsx"
 dataDir = "../data/"
 
-resDir = "../results/R7708_timeSeries/"
+resDir = "../results/R8024_R7846_R7708_all/"
 tabDir =  paste0(resDir, "tables/")
 
 if(!dir.exists(resDir)){dir.create(resDir)}
@@ -36,11 +38,16 @@ if(!dir.exists(tabDir)){dir.create(tabDir)}
 if(file.exists(design.file)){
   design = read.xlsx(design.file, sheet = 1, colNames = TRUE)
   design = data.frame(design, stringsAsFactors = FALSE)
+  
   jj = which(colnames(design) == 'Sample.ID')
   design = design[, c(jj, setdiff(c(1:ncol(design)), jj))]
-  design = design[, c(1:4, 8)]
+  
+  design = design[, c(1, 15:17, 7)]
   colnames(design) = c('SampleID', 'strain', 'stage', 'treatment', 'adaptor')
-  design$strain[grep('Arab', design$strain)] = "Ath"
+  
+  design$strain[grep('Arabidopsis', design$strain)] = "Ath"
+  design$strain[grep('N2', design$strain)] = "N2"
+  
   design$treatment[grep("-", design$treatment)] = 'notreat'
   design$adaptor[grep('Stand', design$adaptor)] = "standard"
   
@@ -63,16 +70,29 @@ if(file.exists(design.file)){
 # piRNAs total nb of reads and other stat numbers
 # spike-in 
 ##########################################
+srbcDir = paste0(dataDir, "R8024_R7846_R7708_srbc")
+oldDir = paste0(dataDir, "R8024_R7846_R7708_old")
+
 # table for read counts and UMI
-aa1 = read.delim(paste0(dataDir, "R7708_result_srbc/countTable.txt"), sep = "\t", header = TRUE)
-aa2 = read.delim(paste0(dataDir, "R7708_result_old/countTable.txt"), sep = "\t", header = TRUE)
+aa1 = read.delim(paste0(srbcDir,  "/countTable.txt"), sep = "\t", header = TRUE)
+aa2 = read.delim(paste0(oldDir,  "/countTable.txt"), sep = "\t", header = TRUE)
 aa <- Reduce(function(dtf1, dtf2) merge(dtf1, dtf2, by = "Name", all = TRUE), list(aa1, aa2))
 
 # spike-ins 
-spikes1 = read.delim(paste0(dataDir, "R7708_result_srbc/spikeInTable.txt"), sep="\t", header = TRUE, row.names = 1)
-spikes2 = read.delim(paste0(dataDir, "R7708_result_old/spikeInTable.txt"), sep="\t", header = TRUE, row.names = 1)
+spikes1 = read.delim(paste0(srbcDir,  "/spikeInTable.txt"), sep="\t", header = TRUE, row.names = 1)
+spikes2 = read.delim(paste0(oldDir,  "/spikeInTable.txt"), sep="\t", header = TRUE, row.names = 1)
 spikes = data.frame(spikes1, spikes2, stringsAsFactors = FALSE)
 
+# mirtrons
+mirtron1 = read.delim(paste0(srbcDir,  "/contamination_countTable.txt"), sep="\t", header = TRUE)
+mirtron2 = read.delim(paste0(oldDir,  "/contamination_countTable.txt"), sep="\t", header = TRUE)
+
+mirtrons = rbind(mirtron1, mirtron2)
+
+rownames(mirtrons) = mirtrons$sample
+mirtrons =  data.frame(Name=colnames(mirtrons)[-1], t(mirtrons[, -1]), stringsAsFactors = FALSE)
+
+mirtrons = process.countTable(all = mirtrons, design = design)
 # stat into the design matrix
 # ignore the stat now, because the nf-pipeline is still yield consistent output
 #stat1 = read.delim(paste0(dataDir, "R7708_result_srbc/countStatTable.txt"), sep="\t", header = TRUE)
@@ -80,22 +100,21 @@ spikes = data.frame(spikes1, spikes2, stringsAsFactors = FALSE)
 #stat = t(as.matrix(stat))
 #spikes = process.countTable(spikes, design)
 
-source(miRNAfunctions)
 
+source(miRNAfunctions)
 pdfname = paste0(resDir, "readCounts_vs_UMI", version.analysis, ".pdf")
 pdf(pdfname, width = 10, height = 6)
 compare.readCounts.umiFr.umiNum(design, aa, spikes)
 dev.off()
 
 # start to process table and merge them into one
-kk = grep("piRNA_", aa$Name)
+kk = grep("piRNA_|pash", aa$Name)
 if(length(kk)>0){
   piRNAs = aa[kk, ]
   aa = aa[-kk,]
 }
 
 source(miRNAfunctions)
-
 
 if(Counts.to.Use == 'readCounts'){
   all = process.countTable(all=aa, design = design, select.counts = "Total.count")
@@ -121,8 +140,12 @@ if(Counts.to.Use == 'readCounts'){
   }
 }
 
-piRNAs = as.matrix(piRNAs[, -1])
+kk = grep("pash", piRNAs$gene)
+pash = piRNAs[kk, ]
+piRNAs = as.matrix(piRNAs[-kk, -1])
+
 piRNAs[which(is.na(piRNAs))] = 0
+
 stat.piRNAs = floor(apply(piRNAs, 2, sum))
 #all = rbind(c('total.piRNAs', stat.piRNAs), all)
 
@@ -139,14 +162,18 @@ if(Counts.to.Use == "readCounts"){
 
 total.spikes = floor(apply(as.matrix(spikes[, -1]), 2, sum))
 
-all = rbind(spikes, all);
+xx = rbind(pash, all)
+xx = rbind(mirtrons, xx)
+xx = rbind(spikes, xx)
+
+all = xx 
 
 design.matrix = data.frame(design, stat.miRNAs, stat.piRNAs, total.spikes)
 
 ######################################
 ######################################
 ## Section: spike-in and piRNA normalization
-# optionally double check the data quality with sample comparisons 
+# optionally double check the data quality with sample comparisons
 ## save the normalized tables
 ######################################
 ######################################
@@ -158,7 +185,6 @@ raw[which(is.na(raw))] = 0
 rownames(raw) = all$gene
 #dds <- DESeqDataSetFromMatrix(raw, DataFrame(design.matrix), design = ~ treatment + stage)
 index.spikeIn = grep("spikeIn", rownames(raw))[c(1:8)]
-
 
 ## calculate scaling factor using spike-ins
 source(miRNAfunctions)
@@ -193,8 +219,13 @@ colnames(cpm.piRNA) = paste0(colnames(cpm.piRNA), "normBy.piRNA")
 
 if(Save.Tables){
   xx = data.frame(raw, res, cpm.piRNA, stringsAsFactors = FALSE)
+  
   write.csv(xx, file = paste0(tabDir, "Normalized_Table_rawCounts_spikeIn_piRNAs_normalized_for", Counts.to.Use,  version.analysis, ".csv"), 
             row.names = TRUE)
+  
+  write.csv(design.matrix, file = paste0(tabDir, "sampleInfo_statistics",  version.analysis, ".csv"), 
+            row.names = TRUE)
+
 }
 
 ########################################################
