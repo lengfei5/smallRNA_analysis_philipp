@@ -8,12 +8,12 @@
 library("openxlsx")
 require('DESeq2')
 miRNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/miRNAseq_functions.R"
-
+RNA_QCfunctions =  "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_QCs.R"
 source(miRNAfunctions)
 
 ### data verision and analysis version
 version.Data = 'miRNAs_R8024_R7846_R7708'
-version.analysis = paste0("_", version.Data, "_20190702")
+version.analysis = paste0("_", version.Data, "_20190723")
 
 Counts.to.Use = "UMIfr"
 Save.Tables = TRUE
@@ -24,6 +24,8 @@ spike.concentrations = c(0.05, 0.25, 0.5, 1.5, 2.5, 3.5, 5, 25)*100 ## the conce
 ### Directories to save results
 design.file = "../exp_design/NGS_Samples_Philipp_2019_all.xlsx"
 dataDir = "../data/"
+srbcDir = paste0(dataDir, "R8024_R7846_R7708_srbc_v2")
+oldDir = paste0(dataDir, "R8024_R7846_R7708_old_v2")
 
 resDir = "../results/R8024_R7846_R7708_all/"
 tabDir =  paste0(resDir, "tables/")
@@ -70,8 +72,6 @@ if(file.exists(design.file)){
 # piRNAs total nb of reads and other stat numbers
 # spike-in 
 ##########################################
-srbcDir = paste0(dataDir, "R8024_R7846_R7708_srbc")
-oldDir = paste0(dataDir, "R8024_R7846_R7708_old")
 
 # table for read counts and UMI
 aa1 = read.delim(paste0(srbcDir,  "/countTable.txt"), sep = "\t", header = TRUE)
@@ -217,6 +217,7 @@ for(n in 1:ncol(cpm.piRNA))
 }
 colnames(cpm.piRNA) = paste0(colnames(cpm.piRNA), "normBy.piRNA")
 
+
 if(Save.Tables){
   xx = data.frame(raw, res, cpm.piRNA, stringsAsFactors = FALSE)
   
@@ -226,6 +227,17 @@ if(Save.Tables){
   write.csv(design.matrix, file = paste0(tabDir, "sampleInfo_statistics",  version.analysis, ".csv"), 
             row.names = TRUE)
 
+  subtract.bc.ath = FALSE
+  if(subtract.bc.ath){
+    source(RNA_QCfunctions)
+    kk = which(design.matrix$strain == "Ath")
+    
+    res.bc = res[, -kk]
+    plot.pair.comparison.plot(res[, kk])
+    plot.pair.comparison.plot(cpm.piRNA[,kk])
+    
+  }
+    
 }
 
 ########################################################
