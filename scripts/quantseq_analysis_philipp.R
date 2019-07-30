@@ -115,9 +115,9 @@ save(design, aa, file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.anal
 ## save the normalized tables
 ######################################
 ######################################
-Counts.to.Use = "readCounts"
-QC.for.cpm = TRUE
-
+Counts.to.Use = "UMI"
+QC.for.cpm = FALSE
+EDA.with.normalized.table = FALSE
 
 load(file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdata'))
 source(RNAfunctions)
@@ -133,15 +133,9 @@ if(Counts.to.Use == 'readCounts'){
 }
 
 all = all[which(!is.na(all$gene)), ]
-# xx = as.matrix(all[, -1])
-# xx[which(is.na(xx))] = 0
-samples.sels = setdiff(c(1:nrow(design)), which(design$condition == "none"))
-
-raw = ceiling(as.matrix(all[, (samples.sels+1)]))
+raw = ceiling(as.matrix(all[, -1]))
 raw[which(is.na(raw))] = 0
 rownames(raw) = all$gene
-#raw = raw[which()] 
-#dds <- DESeqDataSetFromMatrix(raw, DataFrame(design.matrix), design = ~ treatment + stage)
 
 ##########################################
 # quality control  
@@ -149,13 +143,15 @@ rownames(raw) = all$gene
 if(QC.for.cpm){
   #treat = length(unique(design$treatment[kk]));
   #index.qc = c(3, 5)[which(c(length(unique(design.matrix$genotype)), length(unique(design.matrix$promoter)))>1)]
+  samples.sels = setdiff(c(1:nrow(design)), which(design$condition == "none"))
+  
   index.qc = c(1, 2, 3)
   
   source(RNA_QCfunctions)
   
   pdfname = paste0(resDir, "/Data_qulity_assessment", version.analysis, "_", Counts.to.Use, ".pdf")
   pdf(pdfname, width = 12, height = 10)
-  Check.RNAseq.Quality(read.count=raw, design.matrix = design[samples.sels, index.qc])
+  Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, index.qc])
   dev.off()
   
 }
@@ -163,30 +159,45 @@ if(QC.for.cpm){
 ##########################################
 # calculate scaling factor and normalization
 ##########################################
-require(DESeq2)
-samples.sels = setdiff(c(1:nrow(design)), which(design$condition == "none"))
-
-raw = ceiling(as.matrix(all[, (samples.sels+1)]))
-raw[which(is.na(raw))] = 0
-rownames(raw) = all$gene
-
-#source(RNAfunctions)
-dds <- DESeqDataSetFromMatrix(raw, 
-                              DataFrame(design[samples.sels, ]), 
-                              design = ~ condition + stage)
-lowlyExpressed.readCount.threshold = 20
-dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
-dds <- estimateSizeFactors(dds)
-
-fpm = fpm(dds, robust = TRUE)
-
-if(Save.Tables){
-  xx = data.frame(fpm, stringsAsFactors = FALSE)
-  write.csv(xx, file = paste0(tabDir, "Table_normalized_for_", Counts.to.Use,  version.analysis, ".csv"), 
-            row.names = TRUE)
+if(EDA.with.normalized.table){
+  require(DESeq2)
+  samples.sels = setdiff(c(1:nrow(design)), which(design$condition == "none"))
+  
+  raw = ceiling(as.matrix(all[, (samples.sels+1)]))
+  raw[which(is.na(raw))] = 0
+  rownames(raw) = all$gene
+  
+  #source(RNAfunctions)
+  dds <- DESeqDataSetFromMatrix(raw, 
+                                DataFrame(design[samples.sels, ]), 
+                                design = ~ condition + stage)
+  lowlyExpressed.readCount.threshold = 20
+  dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
+  dds <- estimateSizeFactors(dds)
+  
+  fpm = fpm(dds, robust = TRUE)
+  
+  if(Save.Tables){
+    xx = data.frame(fpm, stringsAsFactors = FALSE)
+    write.csv(xx, file = paste0(tabDir, "Table_normalized_for_", Counts.to.Use,  version.analysis, ".csv"), 
+              row.names = TRUE)
+  }
   
 }
 
+########################################################
+########################################################
+# Section : specify pairwise comparisons for different time points and conditions
+# 
+########################################################
+########################################################
+design.matrix = design[which(design$stage != "none"), ]
+kk = which(design.matrix$condition == 'none')
+design.matrix$condition[kk] = design.matrix$strain[kk] 
+
+timepoints = list("L1")
+compares = list(list(c("MLC1384", "wt"),  c("MT17810", 'wt')), 
+                list(c("")))
 
 ########################################################
 ########################################################
