@@ -191,13 +191,53 @@ if(EDA.with.normalized.table){
 # 
 ########################################################
 ########################################################
-design.matrix = design[which(design$stage != "none"), ]
-kk = which(design.matrix$condition == 'none')
-design.matrix$condition[kk] = design.matrix$strain[kk] 
+kk = which(design$condition == 'none' & design$stage != "none")
+design$condition[kk] = design$strain[kk] 
 
-timepoints = list("L1")
-compares = list(list(c("MLC1384", "wt"),  c("MT17810", 'wt')), 
-                list(c("")))
+#timepoints = list("L1")
+#compares = list(list(c("MLC1384", "wt"),  c("MT17810", 'wt')), 
+#                list(c("")))
+lowlyExpressed.readCount.threshold = 10
+require(DESeq2)
+source(RNA_QCfunctions)
+#index.qc = c(1, 4)
+
+##########################################
+# Paula's two mutants 
+##########################################
+outDir = paste0(tabDir, "Paula/")
+samples.sels = intersect(which(design$stage == "L1"), grep("wt|MLC|MT", design$condition))
+if(!dir.exists(outDir)) dir.create(outDir)
+
+pdfname = paste0(outDir, "Data_qulity_assessment", version.analysis, "_", Counts.to.Use, ".pdf")
+pdf(pdfname, width = 12, height = 10)
+Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, c(1, 4)])
+
+
+dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition)
+dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
+dds <- estimateSizeFactors(dds)
+
+cpm = fpm(dds, robust = TRUE)
+colnames(cpm) = paste0(colnames(cpm), ".normalizedDESeq2")
+
+par(cex = 1.0, las = 1, mgp = c(2,0.2,0), mar = c(3,2,2,0.2), tcl = -0.3)
+
+dds = estimateDispersions(dds, fitType = "local")
+plotDispEsts(dds, ylim=c(0.001, 10), cex=1.0)
+
+dds = nbinomWaldTest(dds, betaPrior = TRUE)
+resultsNames(dds)
+
+res1 = results(dds, contrast=c("condition","MLC1384","wt"))
+summary(res1)
+plotMA(res1, ylim = c(-2, 2))
+
+res2 = results(dds, contrast=c("condition","MT17810","wt"))
+summary(res2)
+plotMA(res2, ylim = c(-2, 2))
+
+dev.off()
 
 ########################################################
 ########################################################
