@@ -128,10 +128,10 @@ if(Compare.UMI.vs.readCounts){
 }
 
 if(Counts.to.Use == 'readCounts'){
-  all = process.countTable(all=aa, design = design, special.column = ".readCount")
+  all = process.countTable(all=aa, design = design, special.column = ".readCount", ensToGeneSymbol = TRUE)
 }else{
   if(Counts.to.Use == "UMI"){
-    all = process.countTable(all=aa, design = design, special.column = "UMI")
+    all = process.countTable(all=aa, design = design, special.column = "UMI", ensToGeneSymbol = TRUE)
   }else{
     cat("Error : no counts found for ", Counts.to.Use, "for miRNAs \n")
   }
@@ -311,7 +311,7 @@ for(n in 1:length(compares)){
 # N2, two mutants and two rescues 
 ##########################################
 stage.sel = c('2cells', 'Gastrulation')
-cond.sel = c('wt','pash1.ts', 'drosha.pash1.aid.RNAi', "pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron")
+cond.sel = c('wt',"pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", 'pash1.ts', 'drosha.pash1.aid.RNAi')
 compName = paste0(c(stage.sel), collapse = "_vs_")
 outDir = paste0(resDir, compName)
 
@@ -337,14 +337,22 @@ Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samp
 
 #dev.off()
 # start DE analysis
-dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition)
+dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition + stage )
+
+dds$condition = relevel(dds$condition, "wt")
+dds$stage <- relevel(dds$stage, ref = "2cells")
+
+dds$group <- factor(paste0(dds$condition, dds$stage))
+design(dds) <- ~ group
+
 dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
 dds <- estimateSizeFactors(dds)
 
 cpm = fpm(dds, robust = TRUE)
 colnames(cpm) = paste0(colnames(cpm), ".normDESeq2")
 
-dds = estimateDispersions(dds, fitType = "local")
+dds = estimateDispersions(dds)
+
 plotDispEsts(dds, ylim=c(0.001, 10), cex=1.0)
 abline(h=c(0.1, 0.01), col = 'red', lwd=1.2)
 
@@ -352,35 +360,29 @@ dds = nbinomWaldTest(dds, betaPrior = TRUE)
 resultsNames(dds)
 
 res = cpm
-index.upper = c()
-index.lower = c()
+
+index.sels = c()
 padj.cutoff = 0.1
 
 for(ii in 1:length(cond.sel)){
-  res.ii = results(dds, contrast=c("condition",cond.sel[ii], "wt"))
+  #ii = 1
+  res.ii = results(dds, contrast=c("group", paste0(cond.sel[ii], "Gastrulation"), paste0(cond.sel[ii],  "2cells")))
   summary(res.ii)
-  plotMA(res.ii, ylim = c(-2, 2), main = paste0("MA plot -- ", cond.sel[ii], " vs wt"))
+  plotMA(res.ii, ylim = c(-3, 3), main = paste0("MA plot -- ", cond.sel[ii], " : Gastrulation vs. 2cells"))
   
-  ## special cases:  
-  # list("Gastrulation", c("pash1.ts", "pash1.ts.mirtron")), 
-  # list("Gastrulation", c("drosha.pash1.aid.RNAi", "drosha.pash1.aid.pash1.RNAi.mirtron"))
-  if(stage.sel == "Gastrulation" & (cond.sel[ii] == "pash1.ts.mirtron" | cond.sel[ii] == "drosha.pash1.aid.pash1.RNAi.mirtron")){
-    upper.ii = which(res.ii$padj > padj.cutoff)
-    lower.ii = upper.ii
+  if(cond.sel[ii] == 'wt'| cond.sel[ii] == "pash1.ts.mirtron" | cond.sel[ii] == "drosha.pash1.aid.pash1.RNAi.mirtron"){
+    index.ii = which(res.ii$padj < padj.cutoff & res.ii$log2FoldChange < 0)
   }else{
-    upper.ii = which(res.ii$log2FoldChange > 0 &  res.ii$padj < padj.cutoff)
-    lower.ii = which(res.ii$log2FoldChange < 0 &  res.ii$padj < padj.cutoff)
+    index.ii = which(res.ii$padj >= padj.cutoff)
   }
   
-  if(ii == 1) {
-    index.upper = c(index.upper, upper.ii)
-    index.lower = c(index.lower, lower.ii)
-  }else{
-    index.upper = intersect(index.upper, upper.ii)
-    index.lower = intersect(index.lower, lower.ii)
+  if(ii == 1){ 
+    index.sels = c(index.sels, index.ii)
+  }else{ 
+    index.sels = intersect(index.sels, index.ii) 
   }
   
-  colnames(res.ii) = paste0(colnames(res.ii), paste0("_", cond.sel[ii], ".vs.N2"))
+  colnames(res.ii) = paste0(colnames(res.ii), paste0("_", cond.sel[ii], "_Gastrulation.vs.2cells"))
   res =  data.frame(res, res.ii[, c(1, 2, 5,6)])
 }
 
@@ -389,16 +391,11 @@ dev.off()
 write.csv(res, 
           file = paste0(outDir, "/NormalizedTable_DEanalysis_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
           row.names = TRUE)
-
-write.csv(res[index.upper, ], 
-          file = paste0(outDir, "/NormalizedTable_DEanalysis_Upregulated_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
-          row.names = TRUE)
-write.csv(res[index.lower, ], 
-          file = paste0(outDir, "/NormalizedTable_DEanalysis_Lowregulated_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+write.csv(res[index.sels, ], 
+          file = paste0(outDir, "/NormalizedTable_DEanalysis_commonGeneSets_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
           row.names = TRUE)
 
-head(res[index.upper, grep("log2Fold|padj", colnames(res))])
-head(res[index.lower, grep("log2Fold|padj", colnames(res))])
+head(res[index.sels, grep("log2Fold|padj", colnames(res))])
 
 
 
