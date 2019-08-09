@@ -363,6 +363,7 @@ res = cpm
 
 index.sels = c()
 padj.cutoff = 0.1
+index.all = list()
 
 for(ii in 1:length(cond.sel)){
   #ii = 1
@@ -375,6 +376,8 @@ for(ii in 1:length(cond.sel)){
   }else{
     index.ii = which(res.ii$padj >= padj.cutoff)
   }
+  
+  index.all[[ii]] = index.ii
   
   if(ii == 1){ 
     index.sels = c(index.sels, index.ii)
@@ -397,13 +400,12 @@ write.csv(res[index.sels, ],
 
 head(res[index.sels, grep("log2Fold|padj", colnames(res))])
 
+names(index.all) = cond.sel
+index.wt = index.all[[1]]
+index.resccue = (intersect(index.all[[2]], index.all[[3]]))
+index.mutant = (intersect(index.all[[4]], index.all[[5]]))
 
+length(intersect(index.wt, index.resccue))
 
-
-
-
-
-
-
-
+length(intersect(intersect(index.wt, index.resccue), index.mutant))
 
