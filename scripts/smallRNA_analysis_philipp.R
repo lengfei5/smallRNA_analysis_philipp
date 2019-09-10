@@ -16,8 +16,9 @@ version.Data = 'miRNAs_R8024_R7846_R7708'
 version.analysis = paste0("_", version.Data, "_20190723")
 
 Counts.to.Use = "UMIfr"
-Save.Tables = TRUE
+Save.Tables = FALSE
 check.quality.by.sample.comparisons = FALSE
+Save.Tables.correctedBackground = TRUE
 
 spike.concentrations = c(0.05, 0.25, 0.5, 1.5, 2.5, 3.5, 5, 25)*100 ## the concentration is amol/mug-of-total-RNA
 
@@ -170,6 +171,7 @@ all = xx
 
 design.matrix = data.frame(design, stat.miRNAs, stat.piRNAs, total.spikes)
 
+save(all, design.matrix, file=paste0(resDir, 'Design_Raw_readCounts_',Counts.to.Use,  version.analysis, '.Rdata'))
 ######################################
 ######################################
 ## Section: spike-in and piRNA normalization
@@ -177,6 +179,8 @@ design.matrix = data.frame(design, stat.miRNAs, stat.piRNAs, total.spikes)
 ## save the normalized tables
 ######################################
 ######################################
+load(file=paste0(resDir, 'Design_Raw_readCounts_',Counts.to.Use,  version.analysis, '.Rdata'))
+
 read.count = all[, -1];
 sel.samples.with.spikeIns = c(1:nrow(design))
 
@@ -202,10 +206,6 @@ res = res.spike.in$normalization.spikeIn
 colnames(cpm) = paste0(colnames(cpm), ".cpm")
 colnames(res) = paste0(colnames(res), ".amol.per.mugRNA.normBySpikeIns")
 
-#ss = apply(raw, 2, sum)
-#plot(raw[,1]/ss[1]*10^6, cpm[,1], log='xy');abline(0, 1, lwd=2.0, col='red')
-#plot(raw[,1]/ss[1]*10^6/norms[1], res[,1], log='xy');abline(0, 1, lwd=2.0, col='red')
-
 ### normalization counts using piRNA data
 #piRNAs = stat[which(stat$type=="piRNA"), c(-1)]
 piRNAs = design.matrix$stat.piRNAs
@@ -226,18 +226,28 @@ if(Save.Tables){
   
   write.csv(design.matrix, file = paste0(tabDir, "sampleInfo_statistics",  version.analysis, ".csv"), 
             row.names = TRUE)
+}
 
-  subtract.bc.ath = FALSE
-  if(subtract.bc.ath){
-    source(RNA_QCfunctions)
-    kk = which(design.matrix$strain == "Ath")
-    
-    res.bc = res[, -kk]
-    plot.pair.comparison.plot(res[, kk])
-    plot.pair.comparison.plot(cpm.piRNA[,kk])
-    
+if(Save.Tables.correctedBackground){
+  
+  source(RNA_QCfunctions)
+  res.bc = res[, which(design.matrix$strain != "Ath")]
+  
+  kk = which(design.matrix$SampleID == "88512" | design.matrix$SampleID == "86509" )
+  plot.pair.comparison.plot(res[, kk])
+  # plot.pair.comparison.plot(cpm.piRNA[,kk])
+  bgs = apply(res[, kk], 1, mean)
+  
+  for(n in 1:ncol(res.bc)){
+    res.bc[, n] = res.bc[, n] - bgs
+    res.bc[which(res.bc[,n]<0), n] = 0
   }
-    
+  
+  res.bc = res.bc[-c(1:8), ]
+
+  write.csv(res.bc, file = paste0(tabDir, "Normalized_Table_rawCounts_spikeInNorm_correctedBackground_for", Counts.to.Use,  version.analysis, ".csv"), 
+            row.names = TRUE)
+  
 }
 
 ########################################################

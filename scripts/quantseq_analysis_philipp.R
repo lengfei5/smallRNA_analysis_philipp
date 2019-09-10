@@ -374,6 +374,7 @@ for(ii in 1:length(cond.sel)){
   if(cond.sel[ii] == 'wt'| cond.sel[ii] == "pash1.ts.mirtron" | cond.sel[ii] == "drosha.pash1.aid.pash1.RNAi.mirtron"){
     index.ii = which(res.ii$padj < padj.cutoff & res.ii$log2FoldChange < 0)
   }else{
+    index.xx =  which(res.ii$padj < padj.cutoff & res.ii$log2FoldChange < 0)
     index.ii = which(res.ii$padj >= padj.cutoff)
   }
   
@@ -405,7 +406,28 @@ index.wt = index.all[[1]]
 index.resccue = (intersect(index.all[[2]], index.all[[3]]))
 index.mutant = (intersect(index.all[[4]], index.all[[5]]))
 
+length(index.wt)
+length(index.resccue)
+length(index.mutant)
+length(index.xx)
+
 length(intersect(index.wt, index.resccue))
+length(intersect(index.wt, index.xx))
+length(intersect(index.xx, index.resccue))
+
+library("Vennerable")
+peaks = list(index.wt, index.resccue, index.xx)
+names(peaks) = c('wt', 'res', 'mutant')
+makeVennDiagram(peaks, NameOfPeaks=names(peaks), maxgap=0, minoverlap =1, main=main, connectedPeaks="keepAll")
+
+v <- venn_cnt2venn(ol.peaks$vennCounts)
+try(plot(v))
+
+require(VennDiagram)
+venn.diagram(list(wt = index.wt, rescue = index.resccue, mutant = index.xx),
+             fill = c("blue", "green", 'red'),
+             alpha = c(0.5, 0.5, 0.5), cex = 2,
+             filename = paste0(outDir, "/overlap.png"));
 
 length(intersect(intersect(index.wt, index.resccue), index.mutant))
 
