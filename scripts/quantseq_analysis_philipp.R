@@ -401,6 +401,22 @@ write.csv(res[index.sels, ],
 
 head(res[index.sels, grep("log2Fold|padj", colnames(res))])
 
+##########################################
+# try to figure out how to answer the Q3
+##########################################
+maternal = read.xlsx("../data/Stoeckium-embj-2014.xlsx", sheet = 1, colNames = TRUE)
+#maternal = data.frame(maternal, stringsAsFactors = FALSE)
+kk = which((as.numeric(maternal$oocyte_rpkm)>=2 | as.numeric(maternal$`1cell_rpkm` >=2)) & 
+    as.numeric(maternal$log2FC.mRNA.1cell.ooc) < (-1) & 
+    as.numeric(maternal$log2FC.mRNA.1cell.ooc_pv)<0.05)
+
+mats = maternal[kk, ]
+
+mm = match(mats$GENEID, rownames(res))
+mm = mm[which(!is.na(mm))]
+xx = data.frame(apply(res[mm, c(1:3)], 1, median), apply(res[mm, c(4:6)], 1, median))
+plot(xx[, c(1,2)], log='xy'); abline(0, 1)
+
 names(index.all) = cond.sel
 index.wt = index.all[[1]]
 index.resccue = (intersect(index.all[[2]], index.all[[3]]))
