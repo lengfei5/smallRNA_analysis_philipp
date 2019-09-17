@@ -404,18 +404,40 @@ head(res[index.sels, grep("log2Fold|padj", colnames(res))])
 ##########################################
 # try to figure out how to answer the Q3
 ##########################################
-maternal = read.xlsx("../data/Stoeckium-embj-2014.xlsx", sheet = 1, colNames = TRUE)
-#maternal = data.frame(maternal, stringsAsFactors = FALSE)
-kk = which((as.numeric(maternal$oocyte_rpkm)>=2 | as.numeric(maternal$`1cell_rpkm` >=2)) & 
-    as.numeric(maternal$log2FC.mRNA.1cell.ooc) < (-1) & 
-    as.numeric(maternal$log2FC.mRNA.1cell.ooc_pv)<0.05)
-
-mats = maternal[kk, ]
-
-mm = match(mats$GENEID, rownames(res))
-mm = mm[which(!is.na(mm))]
-xx = data.frame(apply(res[mm, c(1:3)], 1, median), apply(res[mm, c(4:6)], 1, median))
-plot(xx[, c(1,2)], log='xy'); abline(0, 1)
+Test.Candidates.from.Stoeckium = FALSE
+if(Test.Candidates.from.Stoeckium){
+  maternal = read.xlsx("../data/Stoeckium-embj-2014.xlsx", sheet = 1, colNames = TRUE)
+  mm = match(maternal$GENEWBID, annot$Gene.stable.ID)
+  maternal$gene = annot$Gene.name[mm]
+  sel = which((as.numeric(maternal$oocyte_rpkm)>=2 | as.numeric(maternal$`1cell_rpkm` >=2)))
+  maternal = maternal[sel, ]
+  
+  ## compare philipp's 2cell stage with Stoeckium et al.
+  load(file = "/Volumes/groups/cochella/jiwang/annotations/BioMart_WBcel235.Rdata")
+  
+  mm1 = match(rownames(res), maternal$GENEID)
+  length(which(is.na(mm1)))
+  
+  mm2 = match(rownames(res), maternal$gene)
+  length(which(is.na(mm2)))
+  
+  len = annot$Transcript.length..including.UTRs.and.CDS.[match(rownames(res), annot$Gene.name)]
+  plot(res[,1]/len*10^3, maternal$`2cell_rpkm`[mm2], log='xy', cex=0.2)
+  plot(res[,2]/len*10^3, maternal$`1cell_rpkm`[mm2], log='xy', cex=0.2)
+  #plot(res[,1]/len*10^3, maternal$oocyte_rpkm[mm2], log='xy', cex=0.2)
+  
+  #maternal = data.frame(maternal, stringsAsFactors = FALSE)
+  kk = which((as.numeric(maternal$oocyte_rpkm)>=2 | as.numeric(maternal$`1cell_rpkm` >=2)) & 
+               as.numeric(maternal$log2FC.mRNA.1cell.ooc) < (-1) & 
+               as.numeric(maternal$log2FC.mRNA.1cell.ooc_pv)<0.05)
+  
+  mats = maternal[kk, ]
+  
+  mm = match(mats$gene, rownames(res))
+  mm = mm[which(!is.na(mm))]
+  xx = data.frame(apply(res[mm, c(1:3)], 1, median), apply(res[mm, c(4:6)], 1, median))
+  plot(xx[, c(1,2)], log='xy'); abline(0, 1)
+}
 
 names(index.all) = cond.sel
 index.wt = index.all[[1]]
@@ -427,23 +449,66 @@ length(index.resccue)
 length(index.mutant)
 length(index.xx)
 
+head(res[index.wt, grep('.vs.', colnames(res))])
+plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.wt], -log10(res$pvalue_wt_Gastrulation.vs.2cells[index.wt]))
+xx1 = apply(res[, c(1:3)], 1, mean)
+xx2 = apply(res[, c(4:6)], 1, mean)
+
+hist(log2(xx2), main = 'log2(N2.Gastrulation)');abline(v=3, col='red')
+
+plot(xx1[index.wt], xx2[index.wt], log='xy', xlab = "N2.2cell", ylab='N2.Gastrulation', cex = 0.5)
+abline(0, 1, lwd= 1.0, col='red')
+abline(h=2^4, col='red')
+
+length(which(xx2[index.wt]<2^3))
+index.mat = index.wt[which(xx2[index.wt]<2^3)]
+
+plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.mat], 
+     res$log2FoldChange_drosha.pash1.aid.pash1.RNAi.mirtron_Gastrulation.vs.2cells[index.mat],
+     cex=0.7, col = 'darkblue')
+abline(0,1, lwd=1.5, col='darkgray')
+
+plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.mat], 
+     res$log2FoldChange_drosha.pash1.aid.RNAi_Gastrulation.vs.2cells[index.mat],
+     cex=0.7, col = 'darkblue')
+abline(0,1, lwd=1.5, col='darkgray')
+
+plot(res$log2FoldChange_drosha.pash1.aid.pash1.RNAi.mirtron_Gastrulation.vs.2cells[index.mat], 
+     res$log2FoldChange_drosha.pash1.aid.RNAi_Gastrulation.vs.2cells[index.mat],
+     cex=0.7, col = 'darkblue')
+abline(0,1, lwd=1.5, col='darkgray')
+
+plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.mat], 
+     res$log2FoldChange_pash1.ts.mirtron_Gastrulation.vs.2cells[index.mat],
+     cex=0.7, col = 'darkblue')
+abline(0,1, lwd=1.5, col='darkgray')
+
+plot(res$log2FoldChange_pash1.ts.mirtron_Gastrulation.vs.2cells[index.mat],
+     res$log2FoldChange_pash1.ts_Gastrulation.vs.2cells[index.mat],  
+     cex=0.7, col = 'darkblue')
+abline(0,1, lwd=1.5, col='darkgray')
+
+
 length(intersect(index.wt, index.resccue))
 length(intersect(index.wt, index.xx))
 length(intersect(index.xx, index.resccue))
 
-library("Vennerable")
-peaks = list(index.wt, index.resccue, index.xx)
-names(peaks) = c('wt', 'res', 'mutant')
-makeVennDiagram(peaks, NameOfPeaks=names(peaks), maxgap=0, minoverlap =1, main=main, connectedPeaks="keepAll")
+length(intersect(index.mat, index.resccue))
+length(intersect(index.mat, index.xx))
 
-v <- venn_cnt2venn(ol.peaks$vennCounts)
-try(plot(v))
-
-require(VennDiagram)
-venn.diagram(list(wt = index.wt, rescue = index.resccue, mutant = index.xx),
-             fill = c("blue", "green", 'red'),
-             alpha = c(0.5, 0.5, 0.5), cex = 2,
-             filename = paste0(outDir, "/overlap.png"));
-
-length(intersect(intersect(index.wt, index.resccue), index.mutant))
+# library("Vennerable")
+# peaks = list(index.wt, index.resccue, index.xx)
+# names(peaks) = c('wt', 'res', 'mutant')
+# makeVennDiagram(peaks, NameOfPeaks=names(peaks), maxgap=0, minoverlap =1, main=main, connectedPeaks="keepAll")
+# 
+# v <- venn_cnt2venn(ol.peaks$vennCounts)
+# try(plot(v))
+# 
+# require(VennDiagram)
+# venn.diagram(list(wt = index.wt, rescue = index.resccue, mutant = index.xx),
+#              fill = c("blue", "green", 'red'),
+#              alpha = c(0.5, 0.5, 0.5), cex = 2,
+#              filename = paste0(outDir, "/overlap.png"));
+# 
+# length(intersect(intersect(index.wt, index.resccue), index.mutant))
 
