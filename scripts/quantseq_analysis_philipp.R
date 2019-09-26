@@ -81,6 +81,7 @@ Dir_read = paste0(dataDir, "R8043_htseq_counts_BAMs")
 
 source(RNAfunctions)
 
+
 aa1 <- list.files(path = Dir_umi, pattern = "*out_umiDedup", full.names = TRUE)
 aa1 = merge.countTables.htseq(aa1)
 colnames(aa1)[-1] = paste0(colnames(aa1)[-1], ".UMI")
