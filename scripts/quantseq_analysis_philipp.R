@@ -402,9 +402,12 @@ write.csv(res[index.sels, ],
 head(res[index.sels, grep("log2Fold|padj", colnames(res))])
 
 ##########################################
-# try to figure out how to answer the Q3
+# Try to figure out how to answer the Q3
+# Step0 define maternal mRNAs using wt
+# Step1 identify mRNAs regulated by mir35/51 using 1) wt, mutant and rescue 2) predicted targets from targetscan
 ##########################################
 Test.Candidates.from.Stoeckium = FALSE
+Add.mirs.Targets = TRUE
 if(Test.Candidates.from.Stoeckium){
   maternal = read.xlsx("../data/Stoeckium-embj-2014.xlsx", sheet = 1, colNames = TRUE)
   mm = match(maternal$GENEWBID, annot$Gene.stable.ID)
@@ -421,9 +424,14 @@ if(Test.Candidates.from.Stoeckium){
   mm2 = match(rownames(res), maternal$gene)
   length(which(is.na(mm2)))
   
+  pdfname = paste0(outDir, "/MaternalRNA_candidates_Steockius", version.analysis, "_", Counts.to.Use, "_", compName, ".pdf")
+  pdf(pdfname, width = 12, height = 8)
+  par(cex = 1.0, las = 1, mgp = c(3,0.5,0), mar = c(5,4,4,2), tcl = -0.3)
+  
   len = annot$Transcript.length..including.UTRs.and.CDS.[match(rownames(res), annot$Gene.name)]
-  plot(res[,1]/len*10^3, maternal$`2cell_rpkm`[mm2], log='xy', cex=0.2)
-  plot(res[,2]/len*10^3, maternal$`1cell_rpkm`[mm2], log='xy', cex=0.2)
+  plot(apply(res[,c(1:3)], 1, mean)/len*10^3, maternal$`2cell_rpkm`[mm2], log='xy', cex=0.7, main = '2cell.stages.Philipp.vs.Steockius', 
+       xlab = 'philip', ylab = 'steoeckius')
+  #plot(res[,2]/len*10^3, maternal$`1cell_rpkm`[mm2], log='xy', cex=0.2)
   #plot(res[,1]/len*10^3, maternal$oocyte_rpkm[mm2], log='xy', cex=0.2)
   
   #maternal = data.frame(maternal, stringsAsFactors = FALSE)
@@ -436,18 +444,27 @@ if(Test.Candidates.from.Stoeckium){
   mm = match(mats$gene, rownames(res))
   mm = mm[which(!is.na(mm))]
   xx = data.frame(apply(res[mm, c(1:3)], 1, median), apply(res[mm, c(4:6)], 1, median))
-  plot(xx[, c(1,2)], log='xy'); abline(0, 1)
+  plot(xx[, c(1,2)], log='xy', xlab = 'mean of 2cell', ylab = 'mean of gastrulation')
+  abline(0, 1)
+  
+  hist(res$log2FoldChange_wt_Gastrulation.vs.2cells[mm], main = 'log2FC ')
+  
+  dev.off()
+  
+}
+# import targets from targetScan
+if(Add.mirs.Targets){
+  ff = read.table(file = '/Volumes/groups/cochella/jiwang/Databases/TargetScan_Worm_6.2/miR_Family_Info.txt', sep = "\t", header = TRUE)
+  targets = read.delim(file = "/Volumes/groups/cochella/jiwang/Databases/TargetScan_Worm_6.2/Predicted_Targets_Info.txt", header = TRUE)
+  targets.mir51 = unique(targets$Gene.Symbol[which(targets$miR.Family == 'miR-51/52/53/54/55/56')])
+  targets.mir35 = unique(targets$Gene.Symbol[which(targets$miR.Family == 'miR-35/36/37/38/39/40/41-3p/42')])
 }
 
-names(index.all) = cond.sel
-index.wt = index.all[[1]]
-index.resccue = (intersect(index.all[[2]], index.all[[3]]))
-index.mutant = (intersect(index.all[[4]], index.all[[5]]))
-
-length(index.wt)
-length(index.resccue)
-length(index.mutant)
-length(index.xx)
+#### Step0 : HERE define the maternal RNAs using N2
+#### criterion: significantly decreased from 2cell to gastrulation
+pdfname = paste0(outDir, "/Maternal_RNAs_decay_mir35.51", version.analysis, "_", Counts.to.Use, "_", compName, ".pdf")
+pdf(pdfname, width = 18, height = 8)
+par(cex = 1.0, las = 1, mgp = c(3,1,0), mar = c(5,4,4,2), tcl = -0.3)
 
 head(res[index.wt, grep('.vs.', colnames(res))])
 plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.wt], -log10(res$pvalue_wt_Gastrulation.vs.2cells[index.wt]))
@@ -463,38 +480,103 @@ abline(h=2^4, col='red')
 length(which(xx2[index.wt]<2^3))
 index.mat = index.wt[which(xx2[index.wt]<2^3)]
 
-plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.mat], 
-     res$log2FoldChange_drosha.pash1.aid.pash1.RNAi.mirtron_Gastrulation.vs.2cells[index.mat],
-     cex=0.7, col = 'darkblue')
-abline(0,1, lwd=1.5, col='darkgray')
 
-plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.mat], 
-     res$log2FoldChange_drosha.pash1.aid.RNAi_Gastrulation.vs.2cells[index.mat],
-     cex=0.7, col = 'darkblue')
-abline(0,1, lwd=1.5, col='darkgray')
+index.mir35 = match(targets.mir35, rownames(res))
+index.mir35 = index.mir35[which(!is.na(index.mir35))]
+index.mir51 = match(targets.mir51, rownames(res))
+index.mir51 = index.mir51[which(!is.na(index.mir51))]
 
-plot(res$log2FoldChange_drosha.pash1.aid.pash1.RNAi.mirtron_Gastrulation.vs.2cells[index.mat], 
-     res$log2FoldChange_drosha.pash1.aid.RNAi_Gastrulation.vs.2cells[index.mat],
-     cex=0.7, col = 'darkblue')
-abline(0,1, lwd=1.5, col='darkgray')
+Save.Res.for.mir51.35.Targets = FALSE
+if(Save.Res.for.mir51.35.Targets){
+  
+  write.csv(res[index.mir35, ], 
+            file = paste0(outDir, "/NormalizedTable_DEanalysis_mir35_Targets_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+            row.names = TRUE)
+  
+  write.csv(res[index.mir51, ], 
+            file = paste0(outDir, "/NormalizedTable_DEanalysis_mir51_Targets_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+            row.names = TRUE)
+  
+  write.csv(res[-c(index.mir35, index.mir51), ], 
+            file = paste0(outDir, "/NormalizedTable_DEanalysis_others_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+            row.names = TRUE)
+  
+}
 
-plot(res$log2FoldChange_wt_Gastrulation.vs.2cells[index.mat], 
-     res$log2FoldChange_pash1.ts.mirtron_Gastrulation.vs.2cells[index.mat],
-     cex=0.7, col = 'darkblue')
-abline(0,1, lwd=1.5, col='darkgray')
+names(index.all) = cond.sel
+index.wt = index.all[[1]]
+index.resccue = (intersect(index.all[[2]], index.all[[3]]))
+index.mutant = (intersect(index.all[[4]], index.all[[5]]))
 
-plot(res$log2FoldChange_pash1.ts.mirtron_Gastrulation.vs.2cells[index.mat],
-     res$log2FoldChange_pash1.ts_Gastrulation.vs.2cells[index.mat],  
-     cex=0.7, col = 'darkblue')
-abline(0,1, lwd=1.5, col='darkgray')
+length(index.wt)
+length(index.resccue)
+length(index.mutant)
+length(index.xx)
 
+#index.mat = index.wt
 
-length(intersect(index.wt, index.resccue))
-length(intersect(index.wt, index.xx))
-length(intersect(index.xx, index.resccue))
+## WT vs mutant in which all miRNAs were removed in principle
+yy0 = res[, which(colnames(res) == paste0('log2FoldChange_', cond.sel[1], '_Gastrulation.vs.2cells'))]
+xlims = c(-7, 6); ylims = c(-7, 6)
 
-length(intersect(index.mat, index.resccue))
-length(intersect(index.mat, index.xx))
+yy1 = res[, which(colnames(res) == paste0('log2FoldChange_', cond.sel[4], '_Gastrulation.vs.2cells'))]
+yy2 = res[, which(colnames(res) == paste0('log2FoldChange_', cond.sel[2], '_Gastrulation.vs.2cells'))]
+
+yy11 = res[, which(colnames(res) == paste0('log2FoldChange_', cond.sel[5], '_Gastrulation.vs.2cells'))]
+yy22 = res[, which(colnames(res) == paste0('log2FoldChange_', cond.sel[3], '_Gastrulation.vs.2cells'))]
+
+par(mfrow = c(1, 2))
+plot(yy0[index.mat], yy11[index.mat], cex=0.7, xlim = xlims, ylim = ylims, main = "log2FC.drosha.pash1.aid.RNAi", xlab =  'wt', ylab = 'mutant')
+points(yy0[index.mir35], yy11[index.mir35], col = 'blue', pch = 16)
+points(yy0[index.mir51], yy11[index.mir51], col = 'darkgreen', pch = 15)
+abline(0,1, lwd=1.5, col='darkred')
+legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
+
+plot(yy0[index.mat], yy22[index.mat], cex=0.7, xlim = xlims, ylim = ylims,  main = "log2FC.drosha.pash1.aid.RNAi", xlab =  'wt', ylab = 'rescue')
+points(yy0[index.mir35], yy22[index.mir35], col = 'blue', pch = 16)
+points(yy0[index.mir51], yy22[index.mir51], col = 'darkgreen', pch = 15)
+abline(0,1, lwd=1.5, col='darkred')
+legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
+
+par(mfrow = c(1, 1))
+plot((yy11 - yy0)[index.mat],  (yy22 - yy0)[index.mat], cex = 0.7, xlab = 'Diff.log2FC.mutant_wt', ylab = 'Diff.log2FC.rescue_wt', main = 'drosha.pash1.aid.RNAi')
+points((yy11 - yy0)[index.mir35],  (yy22 - yy0)[index.mir35], col = 'blue', pch = 16)
+points((yy11 - yy0)[index.mir51],  (yy22 - yy0)[index.mir51], col = 'darkgreen', pch = 15)
+abline(0, 1, lwd = 1.5, col='darkred')
+abline(h = 0, lwd =1.5, col='darkred')
+abline(v = 0, lwd =1.5, col='darkred')
+legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
+
+par(mfrow = c(1, 2))
+plot(yy0[index.mat], yy1[index.mat], cex=0.7, xlim = xlims, ylim = ylims, main = "log2FC.pash1.ts", xlab =  'wt', ylab = 'mutant')
+points(yy0[index.mir35], yy1[index.mir35], col = 'blue', pch = 16)
+points(yy0[index.mir51], yy1[index.mir51], col = 'darkgreen', pch = 15)
+abline(0,1, lwd=1.5, col='darkred')
+legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
+
+plot(yy0[index.mat], yy2[index.mat], cex=0.7, xlim = xlims, ylim = ylims, main = "log2FC.pash1.ts", xlab =  'wt', ylab = 'rescue')
+points(yy0[index.mir35], yy2[index.mir35], col = 'blue', pch = 16)
+points(yy0[index.mir51], yy2[index.mir51], col = 'darkgreen', pch = 15)
+abline(0,1, lwd=1.5, col='darkred')
+legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
+
+par(mfrow = c(1, 1))
+plot((yy1 - yy0)[index.mat],  (yy2 - yy0)[index.mat], cex = 0.7, main= 'pash1.ts',  xlab = 'Diff.log2FC.mutant_wt', ylab = 'Diff.log2FC.rescue_wt')
+points((yy1 - yy0)[index.mir35],  (yy2 - yy0)[index.mir35], col = 'blue', pch = 16)
+points((yy1 - yy0)[index.mir51],  (yy2 - yy0)[index.mir51], col = 'darkgreen', pch = 15)
+abline(0, 1, lwd = 1.5, col='darkred')
+abline(h = 0, lwd =1.5, col='darkred')
+abline(v = 0, lwd =1.5, col='darkred')
+legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
+
+dev.off()
+
+# length(intersect(index.wt, index.resccue))
+# length(intersect(index.wt, index.xx))
+# length(intersect(index.xx, index.resccue))
+# 
+# length(intersect(index.mat, index.resccue))
+# length(intersect(index.mat, index.xx))
 
 # library("Vennerable")
 # peaks = list(index.wt, index.resccue, index.xx)
