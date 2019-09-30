@@ -130,7 +130,6 @@ load(file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdat
 source(RNAfunctions)
 source(RNA_QCfunctions)
 
-
 if(Counts.to.Use == 'readCounts'){
   all = process.countTable(all=aa, design = design, special.column = ".readCount", ensToGeneSymbol = TRUE)
 }else{
@@ -197,8 +196,8 @@ if(EDA.with.normalized.table){
 
 ########################################################
 ########################################################
-# Section : specify pairwise comparisons for different time points and conditions
-# 
+# Section for Q1 and Q2
+# Pairwise comparisons of mutant, rescue vs wt for different time points, mainly addressing Q1 and Q2
 ########################################################
 ########################################################
 kk = which(design$condition == 'none' & design$stage != "none")
@@ -209,10 +208,6 @@ require(DESeq2)
 source(RNA_QCfunctions)
 #index.qc = c(1, 4)
 
-##########################################
-# try to merge all analysis for Q1 and Q2
-# bacailly all comparisons were done for the same time points
-##########################################
 compares = list(list("L1", c("MLC1384", "MT17810")),
                 list("2.3.fold", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron")),
                 list("L1", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron")),
