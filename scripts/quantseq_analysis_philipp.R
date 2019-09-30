@@ -194,20 +194,23 @@ if(EDA.with.normalized.table){
   
 }
 
-########################################################
-########################################################
-# Section for Q1 and Q2
-# Pairwise comparisons of mutant, rescue vs wt for different time points, mainly addressing Q1 and Q2
-########################################################
-########################################################
-kk = which(design$condition == 'none' & design$stage != "none")
-design$condition[kk] = design$strain[kk] 
+##########################################
+# specify parameters for DESEeq2 and pairwise comparisons
+##########################################
+#kk = which(design$condition == 'none' & design$stage != "none")
+#design$condition[kk] = design$strain[kk] 
 
 lowlyExpressed.readCount.threshold = 10
 require(DESeq2)
 source(RNA_QCfunctions)
 #index.qc = c(1, 4)
 
+########################################################
+########################################################
+# Section for Q1 and Q2
+# Pairwise comparisons of mutant, rescue vs wt for different time points, mainly addressing Q1 and Q2
+########################################################
+########################################################
 compares = list(list("L1", c("MLC1384", "MT17810")),
                 list("2.3.fold", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron")),
                 list("L1", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron")),
@@ -306,14 +309,18 @@ for(n in 1:length(compares)){
   
 }
 
-##########################################
-# Q3: Compare two time points, gastrulation vs. 2cell stage, separately for
+########################################################
+########################################################
+# Section Q3: Compare two time points, gastrulation vs. 2cell stage, separately for
 # N2, two mutants and two rescues 
-##########################################
+# 
+########################################################
+########################################################
 stage.sel = c('2cells', 'Gastrulation')
-cond.sel = c('wt',"pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", 'pash1.ts', 'drosha.pash1.aid.RNAi')
 compName = paste0(c(stage.sel), collapse = "_vs_")
 outDir = paste0(resDir, compName)
+
+cond.sel = c('wt', "drosha.pash1.aid.pash1.RNAi.mirtron", 'drosha.pash1.aid.RNAi')
 
 cat("time to compare -- ", stage.sel, "\n")
 cat("conditions to compare -- ", cond.sel, "\n")
@@ -326,7 +333,9 @@ for(cc in cond.sel) {
   for(tt in stage.sel)
   samples.sels = c(samples.sels, which(design$condition == cc & design$stage == tt))
 }
+
 samples.sels = unique(samples.sels)
+design.sels = design[samples.sels, ]
 
 # check QC
 pdfname = paste0(outDir, "/Data_QC", version.analysis, "_", Counts.to.Use, "_", compName, ".pdf")
@@ -335,6 +344,7 @@ par(cex = 1.0, las = 1, mgp = c(2,0.2,0), mar = c(3,2,2,0.2), tcl = -0.3)
 
 Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, c(1, 4, 3)])
 
+# dev.off()
 #dev.off()
 # start DE analysis
 dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition + stage )
@@ -349,6 +359,29 @@ dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
 dds <- estimateSizeFactors(dds)
 
 cpm = fpm(dds, robust = TRUE)
+
+xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == '2cells')], 1, mean), 
+                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == '2cells')], 1, mean),
+                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == '2cells')], 1, mean))
+colnames(xx) = c('wt.2cells', 'mutant.2cells', 'rescue.2cells')
+
+pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4)
+
+xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == 'Gastrulation')], 1, mean), 
+                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == 'Gastrulation')], 1, mean),
+                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == 'Gastrulation')], 1, mean))
+colnames(xx) = c('wt', 'mutant', 'rescue')
+
+pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4)
+
+##########################################
+# only work on the data at Gastrulation
+##########################################
+dds = dds[, which(dds$stage == 'Gastrulation')]
+design(dds) = ~ condition
+dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
+dds <- estimateSizeFactors(dds)
+
 colnames(cpm) = paste0(colnames(cpm), ".normDESeq2")
 
 dds = estimateDispersions(dds)
