@@ -152,13 +152,14 @@ rownames(raw) = all$gene
 if(QC.for.cpm){
   #treat = length(unique(design$treatment[kk]));
   #index.qc = c(3, 5)[which(c(length(unique(design.matrix$genotype)), length(unique(design.matrix$promoter)))>1)]
-  samples.sels = setdiff(c(1:nrow(design)), which(design$condition == "none"))
+  # samples.sels = setdiff(c(1:nrow(design)), which(design$condition == "none"))
   
+  samples.sels = which(design$stage == "2cells"| design$stage == 'Gastrulation')
   index.qc = c(1, 4, 3)
   
   source(RNA_QCfunctions)
   
-  pdfname = paste0(resDir, "/Data_qulity_assessment", version.analysis, "_", Counts.to.Use, ".pdf")
+  pdfname = paste0(resDir, "/Data_qulity_assessment_2cells_gastrulaiton", version.analysis, "_", Counts.to.Use, ".pdf")
   pdf(pdfname, width = 12, height = 10)
   Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, index.qc])
   dev.off()
