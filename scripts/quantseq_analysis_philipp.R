@@ -125,7 +125,7 @@ save(design, aa, file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.anal
 Counts.to.Use = "UMI"
 QC.for.cpm = FALSE
 EDA.with.normalized.table = FALSE
-miRNA.Targets = TRUE
+Add.miRNA.Targets = TRUE
 
 load(file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdata'))
 source(RNAfunctions)
@@ -156,7 +156,7 @@ source(RNA_QCfunctions)
 ##########################################
 # process miRNA targets 
 ##########################################
-if(miRNA.Targets){
+if(Add.miRNA.Targets){
   targets = read.xlsx('../data/examples_miRNA_targets.xlsx', sheet = 2)
   targets = targets[-c(1), -c(1)]
   colnames(targets) = as.character(targets[1, ])
@@ -468,6 +468,31 @@ res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'wt'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.wt")
 res = data.frame(res, res.ii[, c(2, 5)])
 
+res.ii = results(dds, contrast=c("condition", 'mir35.ko.20degree', 'drosha.pash1.aid.RNAi'))
+colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.20degree.vs.mutant")
+res = data.frame(res, res.ii[, c(2, 5)])
+
+res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'drosha.pash1.aid.RNAi'))
+colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.mutant")
+res = data.frame(res, res.ii[, c(2, 5)])
+
+if(Add.miRNA.Targets){
+  tgs.mapping = data.frame(matrix(NA, nrow = nrow(res), ncol = ncol(targets)))
+  colnames(tgs.mapping) = paste0('targets_', colnames(targets))
+  rownames(tgs.mapping) = rownames(res)
+  
+  for(n in 1:ncol(targets)){
+    # n = 1
+    tags = targets[,n]
+    tags =  tags[which(!is.na(tags)==TRUE)]
+    
+    index.all = match(tags, rownames(res)); 
+    index.all = index.all[which(!is.na(index.all))]
+    #index.up = match(tags, rownames(res.up)); index.up = index.up[which(!is.na(index.up))]
+    #index.down = match(tags, rownames(res.down)); index.down = index.down[which(!is.na(index.down))]
+    tgs.mapping[index.all, n] = TRUE
+  }
+}
 
 jj1 = which(res$pvalue_mutant.vs.wt<0.01 & res$log2FoldChange_mutant.vs.wt >0  & 
               res$pvalue_rescue.vs.mutant<0.01 & res$log2FoldChange_rescue.vs.mutant < 0 )
@@ -487,7 +512,7 @@ abline(0, 1, col='red'); abline(h=0, col='red')
 dev.off()
 
 
-xx = data.frame(cpm, res)
+xx = data.frame(cpm, res, tgs.mapping)
 
 write.csv(xx,
           file = paste0(outDir, "/GeneAll_wt_mutant_rescue_mir35KO_inGastrulation_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
@@ -500,9 +525,18 @@ write.csv(xx[jj2, ],
           file = paste0(outDir, "/GeneList_DownInMutant_UpInRescue_inGastrulation_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
           row.names = TRUE)
 
+##########################################
+# mir35/51 targets enrichment test 
+##########################################
+Enrichment.Analysis.mir35.51.targets = TRUE
+if(Enrichment.Analaysis.mir35.51.targets){
+    
+}
+  
+
 
 ##########################################
-# Try to figure out how to answer the Q3
+# Q4 for maternal RNA decay
 # Step0 define maternal mRNAs using wt
 # Step1 identify mRNAs regulated by mir35/51 using 1) wt, mutant and rescue 2) predicted targets from targetscan
 ##########################################
