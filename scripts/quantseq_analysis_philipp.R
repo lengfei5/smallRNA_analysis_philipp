@@ -125,6 +125,7 @@ save(design, aa, file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.anal
 Counts.to.Use = "UMI"
 QC.for.cpm = FALSE
 EDA.with.normalized.table = FALSE
+miRNA.Targets = TRUE
 
 load(file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdata'))
 source(RNAfunctions)
@@ -145,13 +146,28 @@ raw = ceiling(as.matrix(all[, -1]))
 raw[which(is.na(raw))] = 0
 rownames(raw) = all$gene
 
-#########################################
-# specify parameters for DESEeq2 and pairwise comparisons
-
+###
+### specify parameters for DESEeq2 and pairwise comparisons
+###
 lowlyExpressed.readCount.threshold = 10
 require(DESeq2)
 source(RNA_QCfunctions)
-#index.qc = c(1, 4)
+
+##########################################
+# process miRNA targets 
+##########################################
+if(miRNA.Targets){
+  targets = read.xlsx('../data/examples_miRNA_targets.xlsx', sheet = 2)
+  targets = targets[-c(1), -c(1)]
+  colnames(targets) = as.character(targets[1, ])
+  targets = targets[-c(1:4), ]
+  targets = targets[, -ncol(targets)]
+  colnames(targets) = c('miR35', 'miR51', 'let7', 'lin4', 'miR58', 'miR1', 'miR35.miRanda')
+  
+  length(intersect(targets[,1], targets[, 2]))
+  length(intersect(targets[,3], targets[, 2]))
+  
+}
 
 ##########################################
 # quality control  
@@ -202,23 +218,19 @@ if(EDA.with.normalized.table){
   
 }
 
-
 ########################################################
 ########################################################
 # Section for Q1 and Q2
 # Pairwise comparisons of mutant, rescue vs wt for different time points, mainly addressing Q1 and Q2
 ########################################################
 ########################################################
-compares = list(list("L1", c("MLC1384", "MT17810")),
-                list("2.3.fold", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron")),
-                list("L1", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron")),
-                list("Gastrulation", c("pash1.ts", "pash1.ts.mirtron")), 
-                list("Gastrulation", c("drosha.pash1.aid.RNAi", "drosha.pash1.aid.pash1.RNAi.mirtron"))
+compares = list(list("2.3.fold", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron")),
+                list("L1", c("pash1.ts.mirtron", "drosha.pash1.aid.pash1.RNAi.mirtron", "drosha.pash1.aid.mirtron"))
+                #list("Gastrulation", c("pash1.ts", "pash1.ts.mirtron")), 
+                #list("Gastrulation", c("drosha.pash1.aid.RNAi", "drosha.pash1.aid.pash1.RNAi.mirtron"))
                 )
 
 for(n in 1:length(compares)){
-  
-  n = 5
   
   stage.sel = compares[[n]][[1]]
   cond.sel = compares[[n]][[2]]
@@ -295,15 +307,34 @@ for(n in 1:length(compares)){
             file = paste0(outDir, "/NormalizedTable_DEanalysis_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
             row.names = TRUE)
   
-  write.csv(res[index.upper, ], 
-            file = paste0(outDir, "/NormalizedTable_DEanalysis_Upregulated_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
-            row.names = TRUE)
-  write.csv(res[index.lower, ], 
-            file = paste0(outDir, "/NormalizedTable_DEanalysis_Lowregulated_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
-            row.names = TRUE)
+  #write.csv(res[index.upper, ],
+  #          file = paste0(outDir, "/NormalizedTable_DEanalysis_Upregulated_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+  #          row.names = TRUE)
+  #write.csv(res[index.lower, ], 
+  #          file = paste0(outDir, "/NormalizedTable_DEanalysis_Lowregulated_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+  #          row.names = TRUE)
   
   head(res[index.upper, grep("log2Fold|padj", colnames(res))])
   head(res[index.lower, grep("log2Fold|padj", colnames(res))])
+  
+  if(miRNA.Targets){
+    #res.up = res[index.upper, ]
+    #res.down = res[index.lower, ]
+    
+    for(nn in 1:ncol(targets)){
+      # n = 1
+      tags = targets[,nn]
+      tags =  tags[which(!is.na(tags)==TRUE)]
+      
+      index.all = match(tags, rownames(res)); index.all = index.all[which(!is.na(index.all))]
+      #index.up = match(tags, rownames(res.up)); index.up = index.up[which(!is.na(index.up))]
+      #index.down = match(tags, rownames(res.down)); index.down = index.down[which(!is.na(index.down))]
+      write.csv(res[index.all, ], 
+                file = paste0(outDir, "/NormalizedTable_DEanalysis_for_", Counts.to.Use, "_mirTargets_for_", colnames(targets)[nn],  ".csv"), 
+                row.names = TRUE)
+    }
+    
+  }
   
 }
 
@@ -316,7 +347,7 @@ for(n in 1:length(compares)){
 ########################################################
 stage.sel = c('2cells', 'Gastrulation')
 compName = paste0(c(stage.sel), collapse = "_vs_")
-outDir = paste0(resDir, compName)
+outDir = paste0(resDir, compName, "_mir35KO")
 
 cond.sel = c('wt', "drosha.pash1.aid.pash1.RNAi.mirtron", 'drosha.pash1.aid.RNAi', 'mir35.ko.20degree', 'mir35.ko.25degree')
 
@@ -550,9 +581,11 @@ if(Save.Res.for.mir51.35.Targets){
             file = paste0(outDir, "/NormalizedTable_DEanalysis_mir51_Targets_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
             row.names = TRUE)
   
-  write.csv(res[-c(index.mir35, index.mir51), ], 
+  write.csv(res[-c(index.mir35, index.mir51), ],
             file = paste0(outDir, "/NormalizedTable_DEanalysis_others_for_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
             row.names = TRUE)
+  
+  
   
 }
 
@@ -623,27 +656,3 @@ abline(v = 0, lwd =1.5, col='darkred')
 legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
 
 dev.off()
-
-# length(intersect(index.wt, index.resccue))
-# length(intersect(index.wt, index.xx))
-# length(intersect(index.xx, index.resccue))
-# 
-# length(intersect(index.mat, index.resccue))
-# length(intersect(index.mat, index.xx))
-
-# library("Vennerable")
-# peaks = list(index.wt, index.resccue, index.xx)
-# names(peaks) = c('wt', 'res', 'mutant')
-# makeVennDiagram(peaks, NameOfPeaks=names(peaks), maxgap=0, minoverlap =1, main=main, connectedPeaks="keepAll")
-# 
-# v <- venn_cnt2venn(ol.peaks$vennCounts)
-# try(plot(v))
-# 
-# require(VennDiagram)
-# venn.diagram(list(wt = index.wt, rescue = index.resccue, mutant = index.xx),
-#              fill = c("blue", "green", 'red'),
-#              alpha = c(0.5, 0.5, 0.5), cex = 2,
-#              filename = paste0(outDir, "/overlap.png"));
-# 
-# length(intersect(intersect(index.wt, index.resccue), index.mutant))
-
