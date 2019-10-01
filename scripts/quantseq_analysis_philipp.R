@@ -338,6 +338,7 @@ for(n in 1:length(compares)){
   
 }
 
+
 ########################################################
 ########################################################
 # Section Q3: Compare two time points, gastrulation vs. 2cell stage, separately for
@@ -373,7 +374,7 @@ par(cex = 1.0, las = 1, mgp = c(2,0.2,0), mar = c(3,2,2,0.2), tcl = -0.3)
 
 Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, c(1, 4, 3)])
 
-dev.off()
+#dev.off()
 #dev.off()
 # start DE analysis
 dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition + stage )
@@ -391,17 +392,23 @@ cpm = fpm(dds, robust = TRUE)
 
 xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == '2cells')], 1, mean), 
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == '2cells')], 1, mean),
-                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == '2cells')], 1, mean))
-colnames(xx) = c('wt.2cells', 'mutant.2cells', 'rescue.2cells')
+                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == '2cells')], 1, mean), 
+                apply(cpm[, which(design.sels$condition=="mir35.ko.20degree" & design.sels$stage == '2cells')], 1, mean),
+                apply(cpm[, which(design.sels$condition=="mir35.ko.25degree" & design.sels$stage == '2cells')], 1, mean)
+                )
+colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree', 'mir35ko.25degree')
 
-pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4)
+pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.3, main = '2cells')
 
 xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == 'Gastrulation')], 1, mean), 
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == 'Gastrulation')], 1, mean),
-                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == 'Gastrulation')], 1, mean))
-colnames(xx) = c('wt', 'mutant', 'rescue')
+                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == 'Gastrulation')], 1, mean),
+                apply(cpm[, which(design.sels$condition=="mir35.ko.20degree" & design.sels$stage == 'Gastrulation')], 1, mean),
+                apply(cpm[, which(design.sels$condition=="mir35.ko.25degree" & design.sels$stage == 'Gastrulation')], 1, mean)
+                )
+colnames(xx) = colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree', 'mir35ko.25degree')
 
-pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4)
+pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4, main = 'Gastrulation')
 
 ##########################################
 # only work on the data at Gastrulation
@@ -436,14 +443,38 @@ res.ii = results(dds, contrast=c("condition", 'drosha.pash1.aid.pash1.RNAi.mirtr
 colnames(res.ii) = paste0(colnames(res.ii), "_rescue.vs.wt")
 res = data.frame(res, res.ii[, c(2, 5)])
 
+res.ii = results(dds, contrast=c("condition", 'mir35.ko.20degree', 'wt'))
+colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.20degree.vs.wt")
+res = data.frame(res, res.ii[, c(2, 5)])
+
+res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'wt'))
+colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.wt")
+res = data.frame(res, res.ii[, c(2, 5)])
+
+
 jj1 = which(res$pvalue_mutant.vs.wt<0.01 & res$log2FoldChange_mutant.vs.wt >0  & 
               res$pvalue_rescue.vs.mutant<0.01 & res$log2FoldChange_rescue.vs.mutant < 0 )
 jj2 = which(res$pvalue_mutant.vs.wt<0.01 & res$log2FoldChange_mutant.vs.wt < 0  & 
               res$pvalue_rescue.vs.mutant<0.01 & res$log2FoldChange_rescue.vs.mutant > 0 )
 
+
+plot(res$log2FoldChange_mutant.vs.wt[jj1], res$log2FoldChange_rescue.vs.wt[jj1]);
+abline(0, 1, col='red')
+
+plot(res$log2FoldChange_mutant.vs.wt[jj1], res$log2FoldChange_mir35KO.20degree.vs.wt[jj1]);
+abline(0, 1, col='red');abline(h=0, col='red')
+
+plot(res$log2FoldChange_mutant.vs.wt[jj1], res$log2FoldChange_mir35KO.25degree.vs.wt[jj1]);
+abline(0, 1, col='red'); abline(h=0, col='red')
+
 dev.off()
 
+
 xx = data.frame(cpm, res)
+
+write.csv(xx,
+          file = paste0(outDir, "/GeneAll_wt_mutant_rescue_mir35KO_inGastrulation_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+          row.names = TRUE)
 
 write.csv(xx[jj1, ], 
           file = paste0(outDir, "/GeneList_UpInMutant_DownInRescue_inGastrulation_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
