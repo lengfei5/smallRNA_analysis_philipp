@@ -441,38 +441,6 @@ jj1 = which(res$pvalue_mutant.vs.wt<0.01 & res$log2FoldChange_mutant.vs.wt >0  &
 jj2 = which(res$pvalue_mutant.vs.wt<0.01 & res$log2FoldChange_mutant.vs.wt < 0  & 
               res$pvalue_rescue.vs.mutant<0.01 & res$log2FoldChange_rescue.vs.mutant > 0 )
 
-#head(res[index.sels, grep("log2Fold|padj", colnames(res))])
-#plot(res$log2FoldChange_mutant.vs.wt[jj], res$log2FoldChange_rescue.vs.wt[jj], cex = 0.7);
-#abline(0, 1); abline(h=0, col='red'); abline(v = 0, col='red')
-# index.sels = c()
-# padj.cutoff = 0.1
-# index.all = list()
-# 
-# for(ii in 1:length(cond.sel)){
-#   #ii = 1
-#   res.ii = results(dds, contrast=c("group", paste0(cond.sel[ii], "Gastrulation"), paste0(cond.sel[ii],  "2cells")))
-#   summary(res.ii)
-#   plotMA(res.ii, ylim = c(-3, 3), main = paste0("MA plot -- ", cond.sel[ii], " : Gastrulation vs. 2cells"))
-#   
-#   if(cond.sel[ii] == 'wt'| cond.sel[ii] == "pash1.ts.mirtron" | cond.sel[ii] == "drosha.pash1.aid.pash1.RNAi.mirtron"){
-#     index.ii = which(res.ii$padj < padj.cutoff & res.ii$log2FoldChange < 0)
-#   }else{
-#     index.xx =  which(res.ii$padj < padj.cutoff & res.ii$log2FoldChange < 0)
-#     index.ii = which(res.ii$padj >= padj.cutoff)
-#   }
-#   
-#   index.all[[ii]] = index.ii
-#   
-#   if(ii == 1){ 
-#     index.sels = c(index.sels, index.ii)
-#   }else{ 
-#     index.sels = intersect(index.sels, index.ii) 
-#   }
-#   
-#   colnames(res.ii) = paste0(colnames(res.ii), paste0("_", cond.sel[ii], "_Gastrulation.vs.2cells"))
-#   res =  data.frame(res, res.ii[, c(1, 2, 5,6)])
-# }
-
 dev.off()
 
 xx = data.frame(cpm, res)
