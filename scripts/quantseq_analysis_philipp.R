@@ -166,7 +166,6 @@ if(miRNA.Targets){
   
   length(intersect(targets[,1], targets[, 2]))
   length(intersect(targets[,3], targets[, 2]))
-  
 }
 
 ##########################################
@@ -338,14 +337,16 @@ for(n in 1:length(compares)){
   
 }
 
-
 ########################################################
 ########################################################
 # Section Q3: Compare two time points, gastrulation vs. 2cell stage, separately for
 # N2, two mutants and two rescues 
+# Note:
+# 1) after checking the scaterplot, all samples for 2cell stage look very similar, we here just focus on the gastrulation
 # 
 ########################################################
 ########################################################
+LeaveOut.2cellStage = TRUE
 stage.sel = c('2cells', 'Gastrulation')
 compName = paste0(c(stage.sel), collapse = "_vs_")
 outDir = paste0(resDir, compName, "_mir35KO")
@@ -359,66 +360,82 @@ if(!dir.exists(outDir)) dir.create(outDir)
 
 # select samples for camparisons
 samples.sels = c()
-for(cc in cond.sel) {
-  for(tt in stage.sel)
-  samples.sels = c(samples.sels, which(design$condition == cc & design$stage == tt))
+if(LeaveOut.2cellStage){
+  for(cc in cond.sel) {
+      samples.sels = c(samples.sels, which(design$condition == cc & design$stage == 'Gastrulation'))
+  }
+}else{
+  for(cc in cond.sel) {
+    for(tt in stage.sel)
+      samples.sels = c(samples.sels, which(design$condition == cc & design$stage == tt))
+  }
 }
+
 
 samples.sels = unique(samples.sels)
 design.sels = design[samples.sels, ]
 
 # check QC
-pdfname = paste0(outDir, "/Data_QC_mir35KO", version.analysis, "_", Counts.to.Use, "_", compName, ".pdf")
+pdfname = paste0(outDir, "/Data_QC_wt_mutant_rescue_mir35KO_Gastrulation", version.analysis, "_", Counts.to.Use, "_", compName, ".pdf")
 pdf(pdfname, width = 12, height = 10)
 par(cex = 1.0, las = 1, mgp = c(2,0.2,0), mar = c(3,2,2,0.2), tcl = -0.3)
 
 Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, c(1, 4, 3)])
 
 #dev.off()
-#dev.off()
-# start DE analysis
-dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition + stage )
 
-dds$condition = relevel(dds$condition, "wt")
-dds$stage <- relevel(dds$stage, ref = "2cells")
-
-dds$group <- factor(paste0(dds$condition, dds$stage))
-design(dds) <- ~ group
-
-dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
-dds <- estimateSizeFactors(dds)
-
-cpm = fpm(dds, robust = TRUE)
-
-xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == '2cells')], 1, mean), 
-                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == '2cells')], 1, mean),
-                apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == '2cells')], 1, mean), 
-                apply(cpm[, which(design.sels$condition=="mir35.ko.20degree" & design.sels$stage == '2cells')], 1, mean),
-                apply(cpm[, which(design.sels$condition=="mir35.ko.25degree" & design.sels$stage == '2cells')], 1, mean)
-                )
-colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree', 'mir35ko.25degree')
-
-pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.3, main = '2cells')
-
+##  start DE analysis
+if(!LeaveOut.2cellStage){
+  ##########################################
+  # Check samples in 2 cell stage
+  ##########################################
+  dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition + stage )
+  
+  dds$condition = relevel(dds$condition, "wt")
+  dds$stage <- relevel(dds$stage, ref = "2cells")
+  
+  dds$group <- factor(paste0(dds$condition, dds$stage))
+  design(dds) <- ~ group
+  
+  dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
+  dds <- estimateSizeFactors(dds)
+  
+  cpm = fpm(dds, robust = TRUE)
+  
+  xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == '2cells')], 1, mean), 
+                  apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == '2cells')], 1, mean),
+                  apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == '2cells')], 1, mean), 
+                  apply(cpm[, which(design.sels$condition=="mir35.ko.20degree" & design.sels$stage == '2cells')], 1, mean),
+                  apply(cpm[, which(design.sels$condition=="mir35.ko.25degree" & design.sels$stage == '2cells')], 1, mean)
+  )
+  colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree', 'mir35ko.25degree')
+  
+  pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.3, main = '2cells')
+  
+}else{
+  ##########################################
+  # only work on the data at Gastrulation
+  ##########################################
+  dds <- DESeqDataSetFromMatrix(raw[, samples.sels], DataFrame(design[samples.sels, ]), design = ~ condition)
+  dds$condition = relevel(dds$condition, "wt")
+  
+  # dds = dds[, which(dds$stage == 'Gastrulation')]
+  # design(dds) = ~ condition
+  dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
+  dds <- estimateSizeFactors(dds)
+  
+  cpm = fpm(dds, robust = TRUE)
+  
+}
 xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == 'Gastrulation')], 1, mean), 
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == 'Gastrulation')], 1, mean),
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == 'Gastrulation')], 1, mean),
                 apply(cpm[, which(design.sels$condition=="mir35.ko.20degree" & design.sels$stage == 'Gastrulation')], 1, mean),
                 apply(cpm[, which(design.sels$condition=="mir35.ko.25degree" & design.sels$stage == 'Gastrulation')], 1, mean)
-                )
+)
 colnames(xx) = colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree', 'mir35ko.25degree')
-
 pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4, main = 'Gastrulation')
 
-##########################################
-# only work on the data at Gastrulation
-##########################################
-dds = dds[, which(dds$stage == 'Gastrulation')]
-design(dds) = ~ condition
-dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
-dds <- estimateSizeFactors(dds)
-
-cpm = fpm(dds, robust = TRUE)
 colnames(cpm) = paste0(colnames(cpm), ".normDESeq2")
 
 dds = estimateDispersions(dds)
