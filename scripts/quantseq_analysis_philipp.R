@@ -427,12 +427,14 @@ if(!LeaveOut.2cellStage){
   cpm = fpm(dds, robust = TRUE)
   
 }
+
 xx = data.frame(apply(cpm[, which(design.sels$condition=='wt' & design.sels$stage == 'Gastrulation')], 1, mean), 
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi" & design.sels$stage == 'Gastrulation')], 1, mean),
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron" & design.sels$stage == 'Gastrulation')], 1, mean),
                 apply(cpm[, which(design.sels$condition=="mir35.ko.20degree" & design.sels$stage == 'Gastrulation')], 1, mean),
                 apply(cpm[, which(design.sels$condition=="mir35.ko.25degree" & design.sels$stage == 'Gastrulation')], 1, mean)
 )
+
 colnames(xx) = colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree', 'mir35ko.25degree')
 pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4, main = 'Gastrulation')
 
@@ -530,9 +532,71 @@ write.csv(xx[jj2, ],
 ##########################################
 Enrichment.Analysis.mir35.51.targets = TRUE
 if(Enrichment.Analaysis.mir35.51.targets){
-    
-}
   
+  ## Hypergeometric test for up-genelist
+  jj.ups = jj1
+  pvals = rep(NA, ncol(tgs.mapping))
+  names(pvals) = colnames(tgs.mapping)
+  
+  for(n in 1:ncol(tgs.mapping)){
+    #n = 1
+    nb.target.up = length(which(tgs.mapping[jj.ups, n] == TRUE))
+    nb.up = length(jj.ups)
+    total.targets = length(which(tgs.mapping[,n] == TRUE))
+    total.notargets = nrow(tgs.mapping) - total.targets
+    pvals[n] = phyper(q = nb.target.up, m = total.targets, n = total.notargets, k = nb.up, lower.tail = FALSE, log.p = FALSE)
+  }
+   
+  write.csv(pvals,
+            file = paste0(outDir, "/Enrichment_pvalues_mirTargets_in_Gene_UpInMutant_DownInRescue_inGastrulation_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+            row.names = TRUE)
+  
+  
+  ## Subsampling the same nb of genes as mir35 targets 
+  yy = data.frame(apply(cpm[, grep("N2", colnames(cpm))], 1, mean), 
+                  apply(cpm[, grep("MLC1726", colnames(cpm))], 1, mean),
+                  apply(cpm[, grep("MLC1729", colnames(cpm))], 1, mean)
+                  )
+  colnames(yy) = c('wt', 'mutant', 'rescue')
+  yy  = log2(yy+2^-6)
+  
+  nn = 2
+  tags = targets[,nn]
+  tags =  tags[which(!is.na(tags)==TRUE)]
+  
+  index.all = match(tags, rownames(yy)); 
+  index.all = index.all[which(!is.na(index.all))]
+  
+  boxplot(yy[index.all, ])
+  
+  apply(yy[index.all, ], 2, mean)
+  
+  nb.sampling = 1000
+  
+  sims = matrix(NA, ncol = 3, nrow = (nb.sampling+1))
+  colnames(sims) = colnames(yy)
+  rownames(sims) = c(colnames(targets)[nn], paste0('random_', c(1:nb.sampling)))
+  sims[1, ] = apply(yy[index.all, ], 2, mean)
+  
+  nb.occur = 0
+  offset = 0.5
+  set.seed(2019)
+  for(n in 1:nb.sampling)
+  {
+    ss = yy[sample(c(1:nrow(yy)), size = length(index.all), replace = FALSE), ]
+    avgs = apply(ss, 2, mean)
+    sims[(n+1), ] = avgs
+    if(avgs[2] > (avgs[1] + 1) & avgs[2] > (avgs[3] + 0.5)) {
+      nb.occur = nb.occur +1;
+      #print(avgs)
+    }
+  }
+  
+  write.csv(sims,
+            file = paste0(outDir, "/RandomSubsampling_GeneSet_toTest_", colnames(targets)[nn], ".csv"), 
+            row.names = TRUE)
+  
+}
 
 
 ##########################################
