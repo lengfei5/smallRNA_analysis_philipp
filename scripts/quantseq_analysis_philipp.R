@@ -452,31 +452,31 @@ resultsNames(dds)
 
 res.ii = results(dds, contrast=c("condition", 'drosha.pash1.aid.RNAi', 'wt'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mutant.vs.wt")
-res = data.frame(res.ii[, c(2, 5)])
+res = data.frame(res.ii[, c(2, 5, 6)])
 
 res.ii = results(dds, contrast=c("condition", 'drosha.pash1.aid.pash1.RNAi.mirtron', 'drosha.pash1.aid.RNAi'))
 colnames(res.ii) = paste0(colnames(res.ii), "_rescue.vs.mutant")
-res = data.frame(res, res.ii[, c(2, 5)])
+res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 res.ii = results(dds, contrast=c("condition", 'drosha.pash1.aid.pash1.RNAi.mirtron', 'wt'))
 colnames(res.ii) = paste0(colnames(res.ii), "_rescue.vs.wt")
-res = data.frame(res, res.ii[, c(2, 5)])
+res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 res.ii = results(dds, contrast=c("condition", 'mir35.ko.20degree', 'wt'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.20degree.vs.wt")
-res = data.frame(res, res.ii[, c(2, 5)])
+res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'wt'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.wt")
-res = data.frame(res, res.ii[, c(2, 5)])
+res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 res.ii = results(dds, contrast=c("condition", 'mir35.ko.20degree', 'drosha.pash1.aid.RNAi'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.20degree.vs.mutant")
-res = data.frame(res, res.ii[, c(2, 5)])
+res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'drosha.pash1.aid.RNAi'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.mutant")
-res = data.frame(res, res.ii[, c(2, 5)])
+res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 if(Add.miRNA.Targets){
   tgs.mapping = data.frame(matrix(NA, nrow = nrow(res), ncol = ncol(targets)))
