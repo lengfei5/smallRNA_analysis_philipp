@@ -50,11 +50,18 @@ if(file.exists(design.file)){
   colnames(design) = c('SampleID', 'strain', 'stage', 'treatment')
   design$condition = NA
   
-  
-  ## just select Philipp's data
-  kk = which(design$SampleID < 100003 & design$strain != "MLC1384" & design$strain != "MT17810")
-  design = design[kk, ]
-  
+  Extract.Emilio.Paula.data = FALSE
+  if(Extract.Emilio.Paula.data){
+    ## Emilio and Paula's data
+    jj = which(design$SampleID >= 100003 | design$strain == "MLC1384" | design$strain == "MT17810")
+    design$condition[jj] = design$treatment[jj] 
+  }else{
+    ## just select Philipp's data
+    kk = which(design$SampleID < 100003 & design$strain != "MLC1384" & design$strain != "MT17810")
+    design = design[kk, ]
+    
+  }
+ 
   ####
   ## manually prepare the design infos
   ####
@@ -77,6 +84,8 @@ if(file.exists(design.file)){
   design$condition[which(design$strain == "MT14533" & design$treatment == "20 degree")] = 'mir35.ko.20degree'
   design$condition[which(design$strain == "MT14533" & design$treatment == "25 degree")] = 'mir35.ko.25degree'
   #design$condition[which(is.na(design$condition))] = 'none'
+  
+  
   design = design[, -which(colnames(design)=="treatment")]
 }
 
@@ -113,6 +122,7 @@ if(Compare.UMI.vs.readCounts){
   dev.off()
 }
 
+#save(design, aa, file = paste0(RdataDir, 'Design_Raw_readCounts_UMI_All_incl_Paula_Emilio', version.analysis, '.Rdata'))
 save(design, aa, file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdata'))
 
 ######################################
