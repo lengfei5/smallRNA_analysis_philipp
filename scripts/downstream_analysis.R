@@ -54,11 +54,11 @@ barplot(ratios, names.arg = c('bg',
 ##########################################
 # PCA plot for samples of interest
 ##########################################
-Counts.to.Use = "UMI"
-
 load(file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdata'))
 source(RNAfunctions)
 source(RNA_QCfunctions)
+
+Counts.to.Use = "UMI"
 
 if(Counts.to.Use == 'readCounts'){
   all = process.countTable(all=aa, design = design, special.column = ".readCount", ensToGeneSymbol = TRUE)
@@ -103,10 +103,88 @@ geom_text(hjust = 0.4, nudge_y = 0.5, size=2.5)
 #plot(ggp);
 
 
+##########################################
+# estimate sample timing for quant-seq samples
+##########################################
+load(file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdata'))
+source(RNAfunctions)
+source(RNA_QCfunctions)
 
+Counts.to.Use = "readCounts"
+
+if(Counts.to.Use == 'readCounts'){
+  all = process.countTable(all=aa, design = design, special.column = ".readCount", ensToGeneSymbol = TRUE)
+}else{
+  if(Counts.to.Use == "UMI"){
+    all = process.countTable(all=aa, design = design, special.column = "UMI", ensToGeneSymbol = TRUE)
+  }else{
+    cat("Error : no counts found for ", Counts.to.Use, "for miRNAs \n")
+  }
+}
+
+all = all[which(!is.na(all$gene)), ]
+raw = ceiling(as.matrix(all[, -1]))
+raw[which(is.na(raw))] = 0
+rownames(raw) = all$gene
+
+
+## import the table downloaded from GEO
+ss = apply(raw, 2, sum)
+test = raw
+for(n in 1:ncol(test)) test[,n]  = test[,n]/ss[n]*10^6
+
+test = log2(test + 2^-6)
+
+estimation = rep(NA, ncol(test))
+source("/Volumes/groups/cochella/jiwang/Projects/Aleks/scRNAseq_MS_lineage/scripts_analysis/timingEst_functions.R")
+
+
+if(fastEstimate){
+  dataDir.Hashimsholy = '/Volumes/groups/cochella/jiwang/Projects/Aleks/scRNAseq_MS_lineage_4save/scRNAseq_MS_lineage/data/Hashimsholy_et_al'
+  load(file = paste0(dataDir.Hashimsholy, "/timer_genes_with_ac_pval_plus_timepoints_tempCorrelation.Rdata"))
+  
+  timerGenes.pval = 1; 
+  lineageCorrs = NA; 
+  loess.span = 0.5;
+  lowFilter.threshold.target = 1;
+  use = 'lowFilter.target'
+  PLOT.test = TRUE
+  if(!is.na(lineageCorrs)){
+    kk = which(tcors$AB> lineageCorrs & tcors$MS > lineageCorrs & tcors$E> lineageCorrs & tcors$C>lineageCorrs & timers$pval.box<timerGenes.pval)
+    timers = timers[kk, ]
+  }
+  
+  cat('nb of timer genes after filtering : ', nrow(timers), "\n")
+  
+  for(kk in c(1:ncol(test))){
+    kk = 10
+    cat(kk, "--", design[kk, 3], "-", design[kk, 4], "\n")
+    estimation[kk] = fast.estimate.timing.with.timer.genes(vec = test[,kk], timers = timers, timepoints = timepoints,
+                                                             PLOT.test = PLOT.test,
+                                                             timerGenes.pval= timerGenes.pval, loess.span = loess.span, 
+                                                             lowFilter.threshold.target = lowFilter.threshold.target)
+    
+  }
+  
+  design$timingEst = estimation
+  
+}
+
+write.csv(design, file = paste0(resDir, "downsteam_analysis/TimingEst_Quantseq.csv"), col.names = TRUE, row.names = FALSE)
+
+
+##########################################
+# check the introns and exons 
+##########################################
 ##########################################
 # estimate sample timing 
 ##########################################
+load(file=paste0(RdataDir, 'Design_Raw_readCounts_UMI', version.analysis, '.Rdata'))
+source(RNAfunctions)
+source(RNA_QCfunctions)
 
+xx = design[which(design$stage == '2cells'|design$stage == 'Gastrulation'), ]
+kk = grep('wt|RNAi|mir35.ko', xx$condition)
+xx = xx[kk, ]
 
 
