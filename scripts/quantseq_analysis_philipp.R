@@ -7,6 +7,7 @@
 ##################################################
 library("openxlsx")
 require('DESeq2')
+
 RNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_functions.R"
 RNA_QCfunctions =  "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_QCs.R"
 
@@ -85,8 +86,8 @@ if(file.exists(design.file)){
   design$condition[which(design$strain == "MT14533" & design$treatment == "25 degree")] = 'mir35.ko.25degree'
   #design$condition[which(is.na(design$condition))] = 'none'
   
-  
   design = design[, -which(colnames(design)=="treatment")]
+  
 }
 
 ##########################################

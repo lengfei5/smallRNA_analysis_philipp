@@ -101,7 +101,6 @@ mirtrons = process.countTable(all = mirtrons, design = design)
 #stat = t(as.matrix(stat))
 #spikes = process.countTable(spikes, design)
 
-
 source(miRNAfunctions)
 pdfname = paste0(resDir, "readCounts_vs_UMI", version.analysis, ".pdf")
 pdf(pdfname, width = 10, height = 6)
@@ -129,7 +128,7 @@ if(Counts.to.Use == 'readCounts'){
 
 xx = as.matrix(all[, -1])
 xx[which(is.na(xx))] = 0
-stat.miRNAs = floor(apply(xx, 2, sum))
+stat.miRNAs = (apply(xx, 2, sum))
 
 if(Counts.to.Use == 'readCounts'){
   piRNAs = process.countTable(all= piRNAs, design = design, select.counts = "GM.count")
@@ -147,7 +146,7 @@ piRNAs = as.matrix(piRNAs[-kk, -1])
 
 piRNAs[which(is.na(piRNAs))] = 0
 
-stat.piRNAs = floor(apply(piRNAs, 2, sum))
+stat.piRNAs = (apply(piRNAs, 2, sum))
 #all = rbind(c('total.piRNAs', stat.piRNAs), all)
 
 spikes = data.frame(gene=rownames(spikes), spikes, stringsAsFactors = FALSE)
@@ -170,6 +169,24 @@ xx = rbind(spikes, xx)
 all = xx 
 
 design.matrix = data.frame(design, stat.miRNAs, stat.piRNAs, total.spikes)
+
+total1 = read.delim(paste0(srbcDir,  "/countStatTable.txt"), sep = "\t", header = TRUE)
+total2 = read.delim(paste0(oldDir,  "/countStatTable.txt"), sep = "\t", header = TRUE)
+total = rbind(total1, total2)
+
+kk = c()
+for(n in 1:nrow(design.matrix))
+{
+  kk = c(kk, grep(design.matrix$SampleID[n], total$Name))
+}
+
+yy = data.frame(design.matrix, total[kk, 6:10], stringsAsFactors = FALSE)
+
+yy = yy[, c(1:8, 11)]
+yy = yy[grep('2cells|Gast', yy$stage), ]
+
+write.csv(yy, file = paste0(tabDir, 'smallRNA_sample_stats.csv'), col.names = TRUE, row.names = FALSE)
+
 
 save(all, design.matrix, file=paste0(resDir, 'Design_Raw_readCounts_',Counts.to.Use,  version.analysis, '.Rdata'))
 ######################################

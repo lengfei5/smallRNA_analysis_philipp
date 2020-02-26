@@ -32,24 +32,44 @@ plot(xx[,1], -log10(xx[, 2]))
 load(file='/Volumes/groups/cochella/jiwang/annotations/BioMart_WBcel235.Rdata')
 mm = match(rownames(xx), annot$Gene.name)
 xx = data.frame(xx, chr=annot$Chromosome.scaffold.name[mm], stringsAsFactors = FALSE)
+xx = xx[which(xx$chr != 'MtDNA'), ]
+
+kk = which(xx$chr == 'X')
+plot(xx[kk,1], -log10(xx[kk, 2]), cex =0.7, xlab = 'log2FC', ylab = '-log10(p-adj)', main = 'genes in chrX')
 
 sels = which(xx$padj_mutant.vs.wt<0.05)
 sels1 =  which(xx$padj_mutant.vs.wt<0.05 & xx$log2FoldChange_mutant.vs.wt>0)
 sels2 = which(xx$padj_mutant.vs.wt<0.05 & xx$log2FoldChange_mutant.vs.wt<0)
 
-ratios = c((table(xx$chr)/nrow(xx))[7],
-           (table(xx$chr[sels])/length(sels))[7],
-           (table(xx$chr[sels1])/length(sels1))[7],
-           (table(xx$chr[sels2])/length(sels2))[7])
-m = length(which(xx$chr=='X'))
-n = length(which(xx$chr != "X"))
-pvs = c(phyper(q=(length(which(xx$chr[sels] == 'X'))-1), m, n, length(sels), lower.tail = FALSE, log.p = FALSE), 
-        phyper(q=(length(which(xx$chr[sels1] == 'X'))-1), m, n, length(sels1), lower.tail = FALSE, log.p = FALSE), 
-        phyper(q=(length(which(xx$chr[sels2] == 'X'))-1), m, n, length(sels2), lower.tail = TRUE, log.p = FALSE))
-barplot(ratios, names.arg = c('bg', 
-                              paste0('dereg, pval = ', signif(pvs[1], d=2)),
-                              paste0('upreg, pval = ', signif(pvs[2], d=2)),
-                              paste0('downreg, pval = ', signif(pvs[3], d=2))))
+rrs = xx[sels1, ]
+boxplot(rrs$log2FoldChange_mutant.vs.wt ~ rrs$chr); abline(h=1, col = 'red')
+
+
+ratios = c()
+pvs = c()
+chrs.all = c('I', 'II', 'III', 'IV', 'V', 'X')
+counts = table(xx$chr)
+for(chr in chrs.all)
+{
+  ii = which(names(counts) == chr)
+  ratios = cbind(ratios, c((table(xx$chr)/nrow(xx))[ii],
+             (table(xx$chr[sels])/length(sels))[ii],
+             (table(xx$chr[sels1])/length(sels1))[ii],
+             (table(xx$chr[sels2])/length(sels2))[ii]))
+  
+  m = length(which(xx$chr==chr))
+  n = length(which(xx$chr != chr))
+  pvs = cbind(pvs, c(phyper(q=(length(which(xx$chr[sels] == chr))-1), m, n, length(sels), lower.tail = FALSE, log.p = FALSE), 
+          phyper(q=(length(which(xx$chr[sels1] == chr))-1), m, n, length(sels1), lower.tail = FALSE, log.p = FALSE), 
+          phyper(q=(length(which(xx$chr[sels2] == chr))-1), m, n, length(sels2), lower.tail = TRUE, log.p = FALSE)))
+}
+colnames(ratios) = chrs.all
+rownames(ratios) = c('bg', 'dereg', 'upreg', 'downreg')
+colnames(pvs) = chrs.all
+rownames(pvs) = rownames(ratios)[2:4]
+barplot(ratios, beside = TRUE, col = c(1:4), legend.text = rownames(ratios), args.legend =list(bty='n') )
+
+write.csv(pvs, paste0(resDir, "downsteam_analysis/enrichment_chrXgenes_pvalues.csv"), col.names = TRUE, row.names = TRUE)
 
 ##########################################
 # PCA plot for samples of interest
@@ -140,37 +160,45 @@ source("/Volumes/groups/cochella/jiwang/Projects/Aleks/scRNAseq_MS_lineage/scrip
 
 
 if(fastEstimate){
-  dataDir.Hashimsholy = '/Volumes/groups/cochella/jiwang/Projects/Aleks/scRNAseq_MS_lineage_4save/scRNAseq_MS_lineage/data/Hashimsholy_et_al'
-  load(file = paste0(dataDir.Hashimsholy, "/timer_genes_with_ac_pval_plus_timepoints_tempCorrelation.Rdata"))
   
   timerGenes.pval = 1; 
   lineageCorrs = NA; 
-  loess.span = 0.5;
+  loess.span = 0.3;
   lowFilter.threshold.target = 1;
   use = 'lowFilter.target'
   PLOT.test = TRUE
+  
+  dataDir.Hashimsholy = '/Volumes/groups/cochella/jiwang/Projects/Aleks/scRNAseq_MS_lineage_4save/scRNAseq_MS_lineage/data/Hashimsholy_et_al'
+  load(file = paste0(dataDir.Hashimsholy, "/timer_genes_with_ac_pval_plus_timepoints_tempCorrelation.Rdata"))
+  
   if(!is.na(lineageCorrs)){
     kk = which(tcors$AB> lineageCorrs & tcors$MS > lineageCorrs & tcors$E> lineageCorrs & tcors$C>lineageCorrs & timers$pval.box<timerGenes.pval)
     timers = timers[kk, ]
   }
   
-  cat('nb of timer genes after filtering : ', nrow(timers), "\n")
+  cat('nb of timer genes after filtering : ', length(which(timers$pval.box<timerGenes.pval)), "\n")
+  
+  saveName = paste0(resDir, "downsteam_analysis/TimingEst_Quantseq_timerGenes_pv.", timerGenes.pval, '_lineageCorr.', lineageCorrs)
+  pdfname = paste0(saveName, ".pdf") 
+  pdf(pdfname, width = 10, height = 8)
   
   for(kk in c(1:ncol(test))){
-    kk = 10
-    cat(kk, "--", design[kk, 3], "-", design[kk, 4], "\n")
+    #kk = 10
     estimation[kk] = fast.estimate.timing.with.timer.genes(vec = test[,kk], timers = timers, timepoints = timepoints,
                                                              PLOT.test = PLOT.test,
                                                              timerGenes.pval= timerGenes.pval, loess.span = loess.span, 
                                                              lowFilter.threshold.target = lowFilter.threshold.target)
-    
+    if(design[kk, 4] == 'wt')   cat(kk, "--", estimation[kk], "--",  design[kk, 3], "-", design[kk, 4], "\n")
   }
   
+  dev.off()
+  
   design$timingEst = estimation
+  write.csv(design, file = paste0(saveName, '.csv'), col.names = TRUE, row.names = FALSE)
   
 }
 
-write.csv(design, file = paste0(resDir, "downsteam_analysis/TimingEst_Quantseq.csv"), col.names = TRUE, row.names = FALSE)
+
 
 
 ##########################################
