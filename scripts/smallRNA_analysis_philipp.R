@@ -205,7 +205,6 @@ if(Save.sample.stats){
   
 }
 
-
 save(all, design.matrix, file=paste0(resDir, 'Design_Raw_readCounts_',Counts.to.Use,  version.analysis, '.Rdata'))
 ######################################
 ######################################
@@ -214,7 +213,7 @@ save(all, design.matrix, file=paste0(resDir, 'Design_Raw_readCounts_',Counts.to.
 ## save the normalized tables
 ######################################
 ######################################
-load(file=paste0(resDir, 'Design_Raw_readCounts_',Counts.to.Use,  version.analysis, '.Rdata'))
+load(file=paste0(resDir, 'Design_Raw_readCounts_', Counts.to.Use,  version.analysis, '.Rdata'))
 
 read.count = all[, -1];
 sel.samples.with.spikeIns = c(1:nrow(design))
