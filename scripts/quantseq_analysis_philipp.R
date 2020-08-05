@@ -633,6 +633,7 @@ if(Test.Candidates.from.Stoeckium){
   dev.off()
   
 }
+
 # import targets from targetScan
 if(Add.mirs.Targets){
   ff = read.table(file = '/Volumes/groups/cochella/jiwang/Databases/TargetScan_Worm_6.2/miR_Family_Info.txt', sep = "\t", header = TRUE)
@@ -753,3 +754,41 @@ abline(v = 0, lwd =1.5, col='darkred')
 legend('topleft', legend = c('mir35', 'mir51'), col = c('blue', 'darkgreen'), bty = "n", pch = c(16, 15))
 
 dev.off()
+
+
+########################################################
+########################################################
+# Section : check mir-35 and mir-51 target from modencode
+# 
+########################################################
+########################################################
+Add.mirs.Targets = TRUE
+# import targets from targetScan
+if(Add.mirs.Targets){
+  ff = read.table(file = '/Volumes/groups/cochella/jiwang/Databases/TargetScan_Worm_6.2/miR_Family_Info.txt', sep = "\t", header = TRUE)
+  targets = read.delim(file = "/Volumes/groups/cochella/jiwang/Databases/TargetScan_Worm_6.2/Predicted_Targets_Info.txt", header = TRUE)
+  targets.mir51 = unique(targets$Gene.Symbol[which(targets$miR.Family == 'miR-51/52/53/54/55/56')])
+  targets.mir35 = unique(targets$Gene.Symbol[which(targets$miR.Family == 'miR-35/36/37/38/39/40/41-3p/42')])
+}
+
+load('/Volumes/groups/cochella/jiwang/Databases/modEncode/modEncode_RNAseq_Supplemental_Table_Unified.Rdata') 
+
+aa = encode[, c(33, 2:19)]
+
+mm1 = match(targets.mir35, aa$gene)
+mm2 = match(targets.mir51, aa$gene)
+mm1 = mm1[!is.na(mm1)]
+mm2 = mm2[!is.na(mm2)]
+mm3 = unique(c(mm1, mm2))
+
+
+write.csv(aa[mm1, ], file = paste0(tabDir, 'modEncode_embryo_mir35_targets.csv'), col.names = TRUE, row.names = FALSE)
+write.csv(aa[mm2, ], file = paste0(tabDir, 'modEncode_embryo_mir51_targets.csv'), col.names = TRUE, row.names = FALSE)
+write.csv(aa[-mm3, ], file = paste0(tabDir, 'modEncode_embryo_all_genes_other.than.mir35.mir51_targets.csv'), col.names = TRUE, row.names = FALSE)
+
+
+
+
+
+
+

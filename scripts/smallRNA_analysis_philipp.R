@@ -13,7 +13,7 @@ source(miRNAfunctions)
 
 ### data verision and analysis version
 version.Data = 'miRNAs_R8024_R7846_R7708'
-version.analysis = paste0("_", version.Data, "_20190723")
+version.analysis = paste0("_", version.Data, "_20200805")
 
 Counts.to.Use = "UMIfr"
 Save.Tables = FALSE
@@ -84,16 +84,6 @@ spikes1 = read.delim(paste0(srbcDir,  "/spikeInTable.txt"), sep="\t", header = T
 spikes2 = read.delim(paste0(oldDir,  "/spikeInTable.txt"), sep="\t", header = TRUE, row.names = 1)
 spikes = data.frame(spikes1, spikes2, stringsAsFactors = FALSE)
 
-# mirtrons
-mirtron1 = read.delim(paste0(srbcDir,  "/contamination_countTable.txt"), sep="\t", header = TRUE)
-mirtron2 = read.delim(paste0(oldDir,  "/contamination_countTable.txt"), sep="\t", header = TRUE)
-
-mirtrons = rbind(mirtron1, mirtron2)
-
-rownames(mirtrons) = mirtrons$sample
-mirtrons =  data.frame(Name=colnames(mirtrons)[-1], t(mirtrons[, -1]), stringsAsFactors = FALSE)
-
-mirtrons = process.countTable(all = mirtrons, design = design)
 # stat into the design matrix
 # ignore the stat now, because the nf-pipeline is still yield consistent output
 #stat1 = read.delim(paste0(dataDir, "R7708_result_srbc/countStatTable.txt"), sep="\t", header = TRUE)
@@ -101,21 +91,26 @@ mirtrons = process.countTable(all = mirtrons, design = design)
 #stat = t(as.matrix(stat))
 #spikes = process.countTable(spikes, design)
 
-source(miRNAfunctions)
-pdfname = paste0(resDir, "readCounts_vs_UMI", version.analysis, ".pdf")
-pdf(pdfname, width = 10, height = 6)
-compare.readCounts.umiFr.umiNum(design, aa, spikes)
-dev.off()
+Check.umi.read.count.relationship = FALSE
+if(Check.umi.read.count.relationship){
+  source(miRNAfunctions)
+  pdfname = paste0(resDir, "readCounts_vs_UMI", version.analysis, ".pdf")
+  pdf(pdfname, width = 10, height = 6)
+  compare.readCounts.umiFr.umiNum(design, aa, spikes)
+  dev.off()
+}
 
 # start to process table and merge them into one
+source(miRNAfunctions)
+
+## split miRNAs and piRNAs 
 kk = grep("piRNA_|pash", aa$Name)
 if(length(kk)>0){
   piRNAs = aa[kk, ]
   aa = aa[-kk,]
 }
 
-source(miRNAfunctions)
-
+## process miRNA 
 if(Counts.to.Use == 'readCounts'){
   all = process.countTable(all=aa, design = design, select.counts = "Total.count")
 }else{
@@ -130,6 +125,7 @@ xx = as.matrix(all[, -1])
 xx[which(is.na(xx))] = 0
 stat.miRNAs = (apply(xx, 2, sum))
 
+## process piRNAs
 if(Counts.to.Use == 'readCounts'){
   piRNAs = process.countTable(all= piRNAs, design = design, select.counts = "GM.count")
 }else{
@@ -149,6 +145,7 @@ piRNAs[which(is.na(piRNAs))] = 0
 stat.piRNAs = (apply(piRNAs, 2, sum))
 #all = rbind(c('total.piRNAs', stat.piRNAs), all)
 
+## process spike-ins
 spikes = data.frame(gene=rownames(spikes), spikes, stringsAsFactors = FALSE)
 if(Counts.to.Use == "readCounts"){
   spikes = process.countTable(all=spikes, design = design, select.counts = "Total.spikeIn")
@@ -162,30 +159,51 @@ if(Counts.to.Use == "readCounts"){
 
 total.spikes = floor(apply(as.matrix(spikes[, -1]), 2, sum))
 
+## process mirtron
+mirtron1 = read.delim(paste0(srbcDir,  "/contamination_countTable.txt"), sep="\t", header = TRUE)
+mirtron2 = read.delim(paste0(oldDir,  "/contamination_countTable.txt"), sep="\t", header = TRUE)
+mirtrons = rbind(mirtron1, mirtron2)
+rownames(mirtrons) = mirtrons$sample
+mirtrons = mirtrons[, -1]
+mirtrons =  data.frame(Name=colnames(mirtrons), t(mirtrons), stringsAsFactors = FALSE)
+
+mirtrons = process.countTable(all = mirtrons, design = design)
+
+if(Counts.to.Use == 'UMIfr'){
+  mirtrons = mirtrons[grep('umi', mirtrons$gene), ]
+}else{
+  mirtrons = mirtrons[grep('read', mirtrons$gene), ]
+}
+
+## combine pash, spikes, mirtrons with mirRNA data
 xx = rbind(pash, all)
 xx = rbind(mirtrons, xx)
 xx = rbind(spikes, xx)
-
 all = xx 
 
 design.matrix = data.frame(design, stat.miRNAs, stat.piRNAs, total.spikes)
 
-total1 = read.delim(paste0(srbcDir,  "/countStatTable.txt"), sep = "\t", header = TRUE)
-total2 = read.delim(paste0(oldDir,  "/countStatTable.txt"), sep = "\t", header = TRUE)
-total = rbind(total1, total2)
-
-kk = c()
-for(n in 1:nrow(design.matrix))
-{
-  kk = c(kk, grep(design.matrix$SampleID[n], total$Name))
+Save.sample.stats = FALSE
+if(Save.sample.stats){
+  ## add some statistics, e.g. total nb of reads
+  total1 = read.delim(paste0(srbcDir,  "/countStatTable.txt"), sep = "\t", header = TRUE)
+  total2 = read.delim(paste0(oldDir,  "/countStatTable.txt"), sep = "\t", header = TRUE)
+  total = rbind(total1, total2)
+  
+  kk = c()
+  for(n in 1:nrow(design.matrix))
+  {
+    kk = c(kk, grep(design.matrix$SampleID[n], total$Name))
+  }
+  
+  yy = data.frame(design.matrix, total[kk, 6:10], stringsAsFactors = FALSE)
+  
+  yy = yy[, c(1:8, 11)]
+  yy = yy[grep('2cells|Gast', yy$stage), ]
+  
+  write.csv(yy, file = paste0(tabDir, 'smallRNA_sample_stats.csv'), col.names = TRUE, row.names = FALSE)
+  
 }
-
-yy = data.frame(design.matrix, total[kk, 6:10], stringsAsFactors = FALSE)
-
-yy = yy[, c(1:8, 11)]
-yy = yy[grep('2cells|Gast', yy$stage), ]
-
-write.csv(yy, file = paste0(tabDir, 'smallRNA_sample_stats.csv'), col.names = TRUE, row.names = FALSE)
 
 
 save(all, design.matrix, file=paste0(resDir, 'Design_Raw_readCounts_',Counts.to.Use,  version.analysis, '.Rdata'))
@@ -321,7 +339,6 @@ if(check.quality.by.sample.comparisons){
 } 
 
 
-
 read.count = all[, -1];
 
 kk = c(1:nrow(design))
@@ -344,7 +361,6 @@ pdfname = paste0(resDir, "Data_qulity_assessment", version.analysis, ".pdf")
 pdf(pdfname, width = 12, height = 10)
 Check.RNAseq.Quality(read.count=read.count[, kk], design.matrix = design.matrix[, index.qc])
 dev.off()
-
 
 ######################################
 ######################################
