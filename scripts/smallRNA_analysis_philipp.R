@@ -251,7 +251,6 @@ for(n in 1:ncol(cpm.piRNA))
 }
 colnames(cpm.piRNA) = paste0(colnames(cpm.piRNA), "normBy.piRNA")
 
-
 if(Save.Tables){
   xx = data.frame(raw, res, cpm.piRNA, stringsAsFactors = FALSE)
   
@@ -268,7 +267,9 @@ if(Save.Tables.correctedBackground){
   res.bc = res[, which(design.matrix$strain != "Ath")]
   
   kk = which(design.matrix$SampleID == "88512" | design.matrix$SampleID == "86509" )
+  
   plot.pair.comparison.plot(res[, kk])
+  
   # plot.pair.comparison.plot(cpm.piRNA[,kk])
   bgs = apply(res[, kk], 1, mean)
   
@@ -278,7 +279,7 @@ if(Save.Tables.correctedBackground){
   }
   
   res.bc = res.bc[-c(1:8), ]
-
+  
   write.csv(res.bc, file = paste0(tabDir, "Normalized_Table_rawCounts_spikeInNorm_correctedBackground_for", Counts.to.Use,  version.analysis, ".csv"), 
             row.names = TRUE)
   
