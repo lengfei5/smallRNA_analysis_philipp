@@ -12,8 +12,8 @@ RNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_functio
 RNA_QCfunctions =  "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_QCs.R"
 
 ### data verision and analysis version
-version.Data = 'Quantseq_R8043_R8521'
-version.analysis = paste0("_", version.Data, "_20190926")
+version.Data = 'Quantseq_R8043_R8521_2cell.gastrulation'
+version.analysis = paste0("_", version.Data, "_20201012")
 
 # Counts.to.Use = "UMIfr"
 Save.Tables = TRUE
@@ -22,7 +22,7 @@ check.quality.by.sample.comparisons = FALSE
 # spike.concentrations = c(0.05, 0.25, 0.5, 1.5, 2.5, 3.5, 5, 25)*100 ## the concentration is amol/mug-of-total-RNA
 
 ### Directories to save results
-design.file = "../exp_design/NGS_Samples_Philipp_mRNAseq_all.xlsx"
+design.file = "../exp_design/NGS_samplesheet_mRNAseq_2020.xlsx"
 dataDir = "../data/"
 
 resDir = paste0("../results/", version.Data, "/")
@@ -38,7 +38,8 @@ if(!dir.exists(RdataDir)){dir.create(RdataDir)}
 # mainly manully 
 ##########################################
 if(file.exists(design.file)){
-  design = read.xlsx(design.file, sheet = 1, colNames = TRUE)
+  design = read.xlsx(design.file, sheet = 2, colNames = TRUE, skipEmptyRows = TRUE)
+  
   design = data.frame(design, stringsAsFactors = FALSE)
   design = design[which(!is.na(design$Sample.ID)), ]
   
@@ -60,7 +61,6 @@ if(file.exists(design.file)){
     ## just select Philipp's data
     kk = which(design$SampleID < 100003 & design$strain != "MLC1384" & design$strain != "MT17810")
     design = design[kk, ]
-    
   }
  
   ####
@@ -69,7 +69,7 @@ if(file.exists(design.file)){
   design$strain[grep('Arabidopsis', design$strain)] = "Ath"
   design$strain[grep('H2O', design$strain)] = "H2O.control"
   
-  design = design[-which(design$strain == "Ath" | design$strain == "H2O.control"), ]
+  design = design[which(design$strain != "Ath" & design$strain != "H2O.control"), ]
   
   design$stage[grep("cells", design$stage)] = "2cells"
   design$stage[grep('fold', design$stage)] = "2.3.fold"
@@ -79,8 +79,8 @@ if(file.exists(design.file)){
   design$condition[which(design$strain=="MLC860")] = "pash1.ts"
   design$condition[which(design$strain=="MLC1795")] = "pash1.ts.mirtron"
   design$condition[which(design$strain=="MLC1726")] = "drosha.pash1.aid.RNAi"
-  design$condition[which(design$strain=="MLC1729" & design$treatment == "OP50")] = "drosha.pash1.aid.mirtron"
-  design$condition[which(design$strain=="MLC1729" & design$treatment == "pash-1 RNAi")] = "drosha.pash1.aid.pash1.RNAi.mirtron"
+  design$condition[which(design$strain=="MLC1729")] = "drosha.pash1.aid.pash1.RNAi.mirtron"
+  #design$condition[which(design$strain=="MLC1729" & design$treatment == "pash-1 RNAi")] = "drosha.pash1.aid.pash1.RNAi.mirtron"
   
   design$condition[which(design$strain == "MT14533" & design$treatment == "20 degree")] = 'mir35.ko.20degree'
   design$condition[which(design$strain == "MT14533" & design$treatment == "25 degree")] = 'mir35.ko.25degree'
@@ -358,14 +358,17 @@ for(n in 1:length(compares)){
 ########################################################
 ########################################################
 stage.sel = '2cells' # 'Gastrulaiton' or '2cell'
-
-cond.sel = c('wt', 
-             "drosha.pash1.aid.pash1.RNAi.mirtron", 'drosha.pash1.aid.RNAi', 
-             'mir35.ko.20degree', 'mir35.ko.25degree', 
-             'pash1.ts', 'pash1.ts.mirtron')
+stage.sel = 'Gastrulation' 
+cond.sel = c('wt',
+             'drosha.pash1.aid.pash1.RNAi.mirtron',
+             'drosha.pash1.aid.RNAi', 
+             'mir35.ko.20degree' 
+             #'mir35.ko.25degree', 
+             #'pash1.ts', 'pash1.ts.mirtron'
+             )
 Post.Candidates.Selection = FALSE
 
-outDir = paste0(resDir, "2cells_vs_Gastrulation_mir35KO/tables_", stage.sel)
+outDir = paste0(resDir, "tables_", stage.sel)
 
 cat("time to compare -- ", stage.sel, "\n")
 cat("conditions to compare -- ", cond.sel, "\n")
@@ -384,11 +387,11 @@ samples.sels = unique(samples.sels)
 design.sels = design[samples.sels, ]
 
 # check QC
-pdfname = paste0(outDir, "/Data_QC_wt_mutant_rescue_mir35KO_Gastrulation", version.analysis, "_", Counts.to.Use, "_", compName, ".pdf")
+pdfname = paste0(outDir, "/Data_QC_wt_mutant_rescue_mir35KO_", stage.sel, version.analysis, "_", Counts.to.Use, ".pdf")
 pdf(pdfname, width = 12, height = 10)
 par(cex = 1.0, las = 1, mgp = c(2,0.2,0), mar = c(3,2,2,0.2), tcl = -0.3)
 
-Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, c(1, 4, 3)])
+#Check.RNAseq.Quality(read.count=raw[, samples.sels], design.matrix = design[samples.sels, c(1, 4, 3)])
 
 #dev.off()
 
@@ -400,15 +403,16 @@ dds <- dds[ rowSums(counts(dds)) >= lowlyExpressed.readCount.threshold, ]
 dds <- estimateSizeFactors(dds)
 
 cpm = fpm(dds, robust = TRUE)
+
 xx = data.frame(apply(cpm[, which(design.sels$condition=='wt')], 1, mean), 
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.RNAi")], 1, mean),
                 apply(cpm[, which(design.sels$condition=="drosha.pash1.aid.pash1.RNAi.mirtron")], 1, mean),
-                apply(cpm[, which(design.sels$condition=="mir35.ko.20degree")], 1, mean),
-                apply(cpm[, which(design.sels$condition=="mir35.ko.25degree")], 1, mean)
+                apply(cpm[, which(design.sels$condition=="mir35.ko.20degree")], 1, mean)
+                #apply(cpm[, which(design.sels$condition=="mir35.ko.25degree")], 1, mean)
 )
 
-colnames(xx) = colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree', 'mir35ko.25degree')
-pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4, main = 'Gastrulation')
+colnames(xx) = colnames(xx) = c('wt', 'mutant', 'rescue', 'mir35ko.20degree')
+#pairs(log2(xx), upper.panel = panel.fitting, lower.panel=NULL, cex = 0.4, main = 'Gastrulation')
 
 colnames(cpm) = paste0(colnames(cpm), ".normDESeq2")
 
@@ -438,25 +442,25 @@ res.ii = results(dds, contrast=c("condition", 'mir35.ko.20degree', 'wt'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.20degree.vs.wt")
 res = data.frame(res, res.ii[, c(2, 5, 6)])
 
-res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'wt'))
-colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.wt")
-res = data.frame(res, res.ii[, c(2, 5, 6)])
+# res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'wt'))
+# colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.wt")
+# res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 res.ii = results(dds, contrast=c("condition", 'mir35.ko.20degree', 'drosha.pash1.aid.RNAi'))
 colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.20degree.vs.mutant")
 res = data.frame(res, res.ii[, c(2, 5, 6)])
 
-res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'drosha.pash1.aid.RNAi'))
-colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.mutant")
-res = data.frame(res, res.ii[, c(2, 5, 6)])
-
-res.ii = results(dds, contrast=c("condition", 'pash1.ts', 'wt'))
-colnames(res.ii) = paste0(colnames(res.ii), "_pash1.ts.vs.wt")
-res = data.frame(res, res.ii[, c(2, 5, 6)])
-
-res.ii = results(dds, contrast=c("condition", 'pash1.ts.mirtron', 'wt'))
-colnames(res.ii) = paste0(colnames(res.ii), "_pash1.ts.mirtron.vs.wt")
-res = data.frame(res, res.ii[, c(2, 5, 6)])
+# res.ii = results(dds, contrast=c("condition", 'mir35.ko.25degree', 'drosha.pash1.aid.RNAi'))
+# colnames(res.ii) = paste0(colnames(res.ii), "_mir35KO.25degree.vs.mutant")
+# res = data.frame(res, res.ii[, c(2, 5, 6)])
+# 
+# res.ii = results(dds, contrast=c("condition", 'pash1.ts', 'wt'))
+# colnames(res.ii) = paste0(colnames(res.ii), "_pash1.ts.vs.wt")
+# res = data.frame(res, res.ii[, c(2, 5, 6)])
+# 
+# res.ii = results(dds, contrast=c("condition", 'pash1.ts.mirtron', 'wt'))
+# colnames(res.ii) = paste0(colnames(res.ii), "_pash1.ts.mirtron.vs.wt")
+# res = data.frame(res, res.ii[, c(2, 5, 6)])
 
 
 if(Add.miRNA.Targets){
@@ -479,9 +483,10 @@ if(Add.miRNA.Targets){
 
 
 xx = data.frame(cpm, res, tgs.mapping)
+xx = xx[grep('^__', rownames(xx), invert = TRUE), ]
 
 write.csv(xx,
-          file = paste0(outDir, "/GeneAll_wt_mutant_rescue_mir35KO_", Counts.to.Use, "_", compName, version.analysis, ".csv"), 
+          file = paste0(outDir, "/GeneAll_wt_mutant_rescue_mir35KO_", stage.sel,"_", Counts.to.Use,  version.analysis, ".csv"), 
           row.names = TRUE)
 
 
@@ -785,10 +790,3 @@ mm3 = unique(c(mm1, mm2))
 write.csv(aa[mm1, ], file = paste0(tabDir, 'modEncode_embryo_mir35_targets.csv'), col.names = TRUE, row.names = FALSE)
 write.csv(aa[mm2, ], file = paste0(tabDir, 'modEncode_embryo_mir51_targets.csv'), col.names = TRUE, row.names = FALSE)
 write.csv(aa[-mm3, ], file = paste0(tabDir, 'modEncode_embryo_all_genes_other.than.mir35.mir51_targets.csv'), col.names = TRUE, row.names = FALSE)
-
-
-
-
-
-
-
