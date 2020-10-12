@@ -6,7 +6,7 @@
 ## Date of creation: Wed Jan 24 12:50:51 2018
 ##################################################
 library("openxlsx")
-require('DESeq2')
+require('DESeq2') 
 
 RNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_functions.R"
 RNA_QCfunctions =  "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_QCs.R"
