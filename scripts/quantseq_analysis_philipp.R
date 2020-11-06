@@ -11,6 +11,7 @@ require('DESeq2')
 RNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_functions.R"
 RNA_QCfunctions =  "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_QCs.R"
 
+
 ### data verision and analysis version
 version.Data = 'Quantseq_R8043_R8521_2cell.gastrulation'
 version.analysis = paste0("_", version.Data, "_20201012")
