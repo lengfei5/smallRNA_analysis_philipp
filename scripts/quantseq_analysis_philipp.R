@@ -11,7 +11,6 @@ require('DESeq2')
 RNAfunctions = "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_functions.R"
 RNA_QCfunctions =  "/Volumes/groups/cochella/jiwang/scripts/functions/RNAseq_QCs.R"
 
-
 ### data verision and analysis version
 version.Data = 'Quantseq_R8043_R8521_2cell.gastrulation'
 version.analysis = paste0("_", version.Data, "_20201012")
@@ -23,7 +22,7 @@ check.quality.by.sample.comparisons = FALSE
 # spike.concentrations = c(0.05, 0.25, 0.5, 1.5, 2.5, 3.5, 5, 25)*100 ## the concentration is amol/mug-of-total-RNA
 
 ### Directories to save results
-design.file = "../exp_design/NGS_samplesheet_mRNAseq_2020.xlsx"
+design.file = "../exp_design/NGS_Samples_Philipp_mRNAseq_all.xlsx"
 dataDir = "../data/"
 
 resDir = paste0("../results/", version.Data, "/")
@@ -39,8 +38,7 @@ if(!dir.exists(RdataDir)){dir.create(RdataDir)}
 # mainly manully 
 ##########################################
 if(file.exists(design.file)){
-  design = read.xlsx(design.file, sheet = 2, colNames = TRUE, skipEmptyRows = TRUE)
-  
+  design = read.xlsx(design.file, sheet = 1, colNames = TRUE)
   design = data.frame(design, stringsAsFactors = FALSE)
   design = design[which(!is.na(design$Sample.ID)), ]
   
@@ -62,26 +60,28 @@ if(file.exists(design.file)){
     ## just select Philipp's data
     kk = which(design$SampleID < 100003 & design$strain != "MLC1384" & design$strain != "MT17810")
     design = design[kk, ]
+    
   }
- 
+  
   ####
   ## manually prepare the design infos
   ####
   design$strain[grep('Arabidopsis', design$strain)] = "Ath"
   design$strain[grep('H2O', design$strain)] = "H2O.control"
   
-  design = design[which(design$strain != "Ath" & design$strain != "H2O.control"), ]
+  design = design[-which(design$strain == "Ath" | design$strain == "H2O.control"), ]
   
   design$stage[grep("cells", design$stage)] = "2cells"
   design$stage[grep('fold', design$stage)] = "2.3.fold"
   #design$stage[grep("-", design$stage)] = "none"
   
   design$condition[which(design$strain=="N2")] = "wt"
+  design$condition[which(design$strain=="N2" & design$treatment == '25 degree')] = "wt.25degree"
   design$condition[which(design$strain=="MLC860")] = "pash1.ts"
   design$condition[which(design$strain=="MLC1795")] = "pash1.ts.mirtron"
   design$condition[which(design$strain=="MLC1726")] = "drosha.pash1.aid.RNAi"
-  design$condition[which(design$strain=="MLC1729")] = "drosha.pash1.aid.pash1.RNAi.mirtron"
-  #design$condition[which(design$strain=="MLC1729" & design$treatment == "pash-1 RNAi")] = "drosha.pash1.aid.pash1.RNAi.mirtron"
+  design$condition[which(design$strain=="MLC1729" & design$treatment == "OP50")] = "drosha.pash1.aid.mirtron"
+  design$condition[which(design$strain=="MLC1729" & design$treatment == "pash-1 RNAi")] = "drosha.pash1.aid.pash1.RNAi.mirtron"
   
   design$condition[which(design$strain == "MT14533" & design$treatment == "20 degree")] = 'mir35.ko.20degree'
   design$condition[which(design$strain == "MT14533" & design$treatment == "25 degree")] = 'mir35.ko.25degree'
@@ -90,6 +90,20 @@ if(file.exists(design.file)){
   design = design[, -which(colnames(design)=="treatment")]
   
 }
+
+##########################################
+# select used samples after some cleaning 
+##########################################
+jj = which(design$stage == '2cells' | design$stage == 'Gastrulation')
+design = design[jj, ]
+jj = grep('pash1.ts', design$condition, invert = TRUE)
+design = design[jj, ]
+design = design[grep('25degree', design$condition, invert = TRUE), ]
+design = design[grep('drosha.pash1.aid.mirtron', design$condition, invert = TRUE), ]
+sample.cleaned = read.xlsx('../exp_design/NGS_samplesheet_mRNAseq_2020.xlsx', sheet = 2, colNames = TRUE)
+sample.cleaned = sample.cleaned[which(!is.na(sample.cleaned$Sample.ID)), ]
+mm = match(sample.cleaned$Sample.ID, design$SampleID)
+
 
 ##########################################
 # processing count table, 
